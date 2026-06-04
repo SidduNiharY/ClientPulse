@@ -1,12 +1,41 @@
 # Automated Client Reporting Dashboard Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]` / `- [x]`) syntax for tracking.
 
 **Goal:** Build an internal agency application that imports marketing and commerce data, generates weekly/monthly PDF reports, requires approval, and sends approved reports by email.
 
 **Architecture:** Build a full-stack TypeScript web app with a normalized reporting database, connector interface, script-assisted import adapters for MVP, and report generation services that can later accept direct API connectors without changing the reporting engine. The first release focuses on controlled imports from CSV, Google Sheets, and BigQuery plus manual fallback, while preserving source traceability for every metric.
 
 **Tech Stack:** Next.js App Router, TypeScript, Tailwind CSS, Prisma, PostgreSQL, Zod, Vitest, Playwright, Nodemailer, Recharts, Playwright HTML-to-PDF rendering.
+
+## Implementation Status
+
+Last updated: 2026-06-05.
+
+- [x] Task 1: Project Foundation
+- [x] Task 2: Database Schema And Seed Data
+- [x] Task 3: Script-Assisted Import Connectors
+- [x] Task 4: Client Management And Account Mapping
+- [x] Task 5: Metric Calculations And Revenue Source Flexibility
+- [x] Task 6: Imports, Connector Health, And Data Quality
+- [x] Task 7: Anomaly Detection And Budget Pacing
+- [x] Task 8: Report Builder, Preview, And Versioning
+- [x] Task 9: PDF Generation
+- [x] Task 10: Approval Inbox And Delivery Workflow
+- [x] Task 11: Email Delivery
+- [x] Task 12: AI-Assisted Insights
+- [x] Task 13: MVP End-To-End Report Scenario
+- [x] Task 14: Phase 2 Direct API Connectors
+- [ ] Task 15: Phase 3 And Phase 4 Expansion
+
+Current verification evidence:
+
+- `npm run lint`: passed.
+- `npm test`: 13 files, 28 tests passed.
+- `npm run test:e2e`: 2 tests passed.
+- `npm run build`: passed with 8 generated app pages and dynamic API routes.
+
+Remaining architecture work is Task 15: WhatsApp delivery, portfolio dashboard, profit reporting, forecasting, and opportunity detection.
 
 ---
 
@@ -212,7 +241,7 @@ export type ReportBuildRequest = {
 - Create: `vitest.config.ts`
 - Create: `tests/setup.ts`
 
-- [ ] **Step 1: Generate the app**
+- [x] **Step 1: Generate the app**
 
 Run:
 
@@ -222,7 +251,7 @@ npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --
 
 Expected: Next.js app files are created in the current workspace.
 
-- [ ] **Step 2: Install runtime dependencies**
+- [x] **Step 2: Install runtime dependencies**
 
 Run:
 
@@ -232,7 +261,7 @@ npm install @prisma/client zod date-fns recharts nodemailer papaparse googleapis
 
 Expected: Dependencies are added to `package.json`.
 
-- [ ] **Step 3: Install test dependencies**
+- [x] **Step 3: Install test dependencies**
 
 Run:
 
@@ -242,7 +271,7 @@ npm install -D prisma vitest jsdom @testing-library/react @testing-library/jest-
 
 Expected: Dev dependencies are added to `package.json`.
 
-- [ ] **Step 4: Add app scripts**
+- [x] **Step 4: Add app scripts**
 
 Modify `package.json` scripts:
 
@@ -262,7 +291,7 @@ Modify `package.json` scripts:
 }
 ```
 
-- [ ] **Step 5: Add environment contract**
+- [x] **Step 5: Add environment contract**
 
 Create `.env.example`:
 
@@ -282,7 +311,7 @@ AI_PROVIDER="rule_based"
 AI_API_KEY=""
 ```
 
-- [ ] **Step 6: Add test config**
+- [x] **Step 6: Add test config**
 
 Create `vitest.config.ts`:
 
@@ -304,7 +333,7 @@ Create `tests/setup.ts`:
 import "@testing-library/jest-dom/vitest";
 ```
 
-- [ ] **Step 7: Initialize git and commit**
+- [x] **Step 7: Initialize git and commit**
 
 Run:
 
@@ -325,7 +354,7 @@ Expected: Initial commit succeeds.
 - Modify: `src/server/db/client.ts`
 - Test: `tests/unit/schema-shape.test.ts`
 
-- [ ] **Step 1: Create Prisma schema**
+- [x] **Step 1: Create Prisma schema**
 
 Use this schema structure in `prisma/schema.prisma`:
 
@@ -618,7 +647,7 @@ model EmailDraft {
 }
 ```
 
-- [ ] **Step 2: Add Prisma client singleton**
+- [x] **Step 2: Add Prisma client singleton**
 
 Create `src/server/db/client.ts`:
 
@@ -638,7 +667,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 ```
 
-- [ ] **Step 3: Run migration**
+- [x] **Step 3: Run migration**
 
 Run:
 
@@ -648,7 +677,7 @@ npx prisma migrate dev --name init_reporting_schema
 
 Expected: Migration file is created and Prisma client is generated.
 
-- [ ] **Step 4: Add seed data**
+- [x] **Step 4: Add seed data**
 
 Create `prisma/seed.ts` with one agency user, one ecommerce client, four account mappings, goals, and budgets. The seeded client must include:
 
@@ -672,7 +701,7 @@ Expected account mappings:
 ]
 ```
 
-- [ ] **Step 5: Test schema can load**
+- [x] **Step 5: Test schema can load**
 
 Create `tests/unit/schema-shape.test.ts`:
 
@@ -700,7 +729,7 @@ npm run test -- tests/unit/schema-shape.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -721,11 +750,11 @@ git commit -m "feat: add reporting database schema"
 - Create: `src/server/normalization/normalizeRows.ts`
 - Test: `tests/unit/normalizeRows.test.ts`
 
-- [ ] **Step 1: Implement connector types**
+- [x] **Step 1: Implement connector types**
 
 Use the contract from the "Core Data Contracts" section in `src/server/connectors/types.ts`.
 
-- [ ] **Step 2: Implement platform normalization**
+- [x] **Step 2: Implement platform normalization**
 
 Create `src/server/normalization/normalizeRows.ts`:
 
@@ -823,7 +852,7 @@ export function normalizeRows(input: {
 }
 ```
 
-- [ ] **Step 3: Implement CSV connector**
+- [x] **Step 3: Implement CSV connector**
 
 Create `src/server/connectors/csvConnector.ts` that parses CSV input with `papaparse`, calls `normalizeRows`, and returns `ConnectorResult`.
 
@@ -833,7 +862,7 @@ Required behavior:
 - Missing date field throws `CSV import requires a date field`.
 - Parsed rows preserve `sourceReference` as the uploaded filename.
 
-- [ ] **Step 4: Implement Google Sheets connector**
+- [x] **Step 4: Implement Google Sheets connector**
 
 Create `src/server/connectors/googleSheetsConnector.ts` that reads a sheet range using the Google Sheets API service account credentials and converts sheet rows into objects before normalization.
 
@@ -849,7 +878,7 @@ If any key is missing, throw:
 new Error("Google Sheets connector requires spreadsheetId, range, dateField, and sourceReference");
 ```
 
-- [ ] **Step 5: Implement BigQuery connector**
+- [x] **Step 5: Implement BigQuery connector**
 
 Create `src/server/connectors/bigQueryConnector.ts` that runs a configured SQL query and normalizes the returned rows.
 
@@ -865,7 +894,7 @@ If any key is missing, throw:
 new Error("BigQuery connector requires projectId, query, dateField, and sourceReference");
 ```
 
-- [ ] **Step 6: Add direct connector stubs**
+- [x] **Step 6: Add direct connector stubs**
 
 Create `src/server/connectors/directStubs.ts`:
 
@@ -881,7 +910,7 @@ export class NeedsAuthorizationConnector implements Connector {
 }
 ```
 
-- [ ] **Step 7: Test normalization**
+- [x] **Step 7: Test normalization**
 
 Create `tests/unit/normalizeRows.test.ts`:
 
@@ -929,7 +958,7 @@ npm run test -- tests/unit/normalizeRows.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
@@ -950,7 +979,7 @@ git commit -m "feat: add script assisted import connectors"
 - Create: `src/components/AccountMappingForm.tsx`
 - Test: `tests/e2e/client-management.spec.ts`
 
-- [ ] **Step 1: Add client create/list API**
+- [x] **Step 1: Add client create/list API**
 
 `POST /api/clients` must accept:
 
@@ -975,7 +1004,7 @@ Expected response:
 }
 ```
 
-- [ ] **Step 2: Add mapping create API**
+- [x] **Step 2: Add mapping create API**
 
 `POST /api/clients/[clientId]/mappings` must accept:
 
@@ -994,7 +1023,7 @@ Expected response:
 
 Expected response includes the mapping id and `isActive: true`.
 
-- [ ] **Step 3: Build client pages**
+- [x] **Step 3: Build client pages**
 
 Required page behavior:
 
@@ -1003,7 +1032,7 @@ Required page behavior:
 - `/clients/[clientId]` shows account mappings by platform.
 - `/clients/[clientId]` includes mapping forms for Google Ads, Meta Ads, GA4, Shopify, and manual fallback.
 
-- [ ] **Step 4: Add E2E test**
+- [x] **Step 4: Add E2E test**
 
 Create `tests/e2e/client-management.spec.ts`:
 
@@ -1038,7 +1067,7 @@ npm run test:e2e -- tests/e2e/client-management.spec.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -1055,7 +1084,7 @@ git commit -m "feat: add client management and account mapping"
 - Create: `src/server/reporting/sourceTrace.ts`
 - Test: `tests/unit/metrics.test.ts`
 
-- [ ] **Step 1: Implement metric formulas**
+- [x] **Step 1: Implement metric formulas**
 
 Create `src/server/reporting/metrics.ts`:
 
@@ -1105,7 +1134,7 @@ export function calculateDerivedMetrics(input: {
 }
 ```
 
-- [ ] **Step 2: Implement selected revenue source resolver**
+- [x] **Step 2: Implement selected revenue source resolver**
 
 Add to `metrics.ts`:
 
@@ -1130,7 +1159,7 @@ export function resolveSelectedRevenue(input: {
 }
 ```
 
-- [ ] **Step 3: Test calculations**
+- [x] **Step 3: Test calculations**
 
 Create `tests/unit/metrics.test.ts`:
 
@@ -1181,7 +1210,7 @@ npm run test -- tests/unit/metrics.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
@@ -1200,7 +1229,7 @@ git commit -m "feat: add report metric calculations"
 - Create: `src/server/reporting/dataQuality.ts`
 - Test: `tests/unit/dataQuality.test.ts`
 
-- [ ] **Step 1: Add import run API**
+- [x] **Step 1: Add import run API**
 
 `POST /api/imports` must accept:
 
@@ -1224,7 +1253,7 @@ Expected behavior:
 - Updates connector health to `healthy` on success.
 - Updates connector health to `failed` and stores the error message on failure.
 
-- [ ] **Step 2: Implement data quality score**
+- [x] **Step 2: Implement data quality score**
 
 Create `src/server/reporting/dataQuality.ts`:
 
@@ -1263,7 +1292,7 @@ export function scoreDataQuality(input: DataQualityInput): {
 }
 ```
 
-- [ ] **Step 3: Test quality scoring**
+- [x] **Step 3: Test quality scoring**
 
 Create `tests/unit/dataQuality.test.ts`:
 
@@ -1296,7 +1325,7 @@ npm run test -- tests/unit/dataQuality.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Build health dashboard**
+- [x] **Step 4: Build health dashboard**
 
 Required columns in `/health`:
 
@@ -1312,7 +1341,7 @@ Required columns in `/health`:
 - Retry action.
 - Switch fallback action.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -1330,7 +1359,7 @@ git commit -m "feat: add imports health and data quality"
 - Test: `tests/unit/anomalies.test.ts`
 - Test: `tests/unit/budgetPacing.test.ts`
 
-- [ ] **Step 1: Implement anomaly detection**
+- [x] **Step 1: Implement anomaly detection**
 
 Create `src/server/reporting/anomalies.ts`:
 
@@ -1417,7 +1446,7 @@ export function detectAnomalies(input: {
 }
 ```
 
-- [ ] **Step 2: Implement budget pacing**
+- [x] **Step 2: Implement budget pacing**
 
 Create `src/server/reporting/budgetPacing.ts`:
 
@@ -1452,7 +1481,7 @@ export function calculateBudgetPacing(input: {
 }
 ```
 
-- [ ] **Step 3: Test anomaly detection**
+- [x] **Step 3: Test anomaly detection**
 
 Create `tests/unit/anomalies.test.ts`:
 
@@ -1476,7 +1505,7 @@ describe("detectAnomalies", () => {
 });
 ```
 
-- [ ] **Step 4: Test budget pacing**
+- [x] **Step 4: Test budget pacing**
 
 Create `tests/unit/budgetPacing.test.ts`:
 
@@ -1509,7 +1538,7 @@ npm run test -- tests/unit/anomalies.test.ts tests/unit/budgetPacing.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -1530,7 +1559,7 @@ git commit -m "feat: add anomaly detection and budget pacing"
 - Create: `src/server/audit/reportInvalidation.ts`
 - Test: `tests/unit/reportBuilder.test.ts`
 
-- [ ] **Step 1: Implement date ranges**
+- [x] **Step 1: Implement date ranges**
 
 `src/server/reporting/dateRanges.ts` must return:
 
@@ -1544,7 +1573,7 @@ expect(getMonthlyRange("2026-06-15")).toEqual({ from: "2026-06-01", to: "2026-06
 expect(getWeeklyRange("2026-06-04")).toEqual({ from: "2026-06-01", to: "2026-06-07" });
 ```
 
-- [ ] **Step 2: Implement report builder**
+- [x] **Step 2: Implement report builder**
 
 `buildReportDraft(request: ReportBuildRequest)` must:
 
@@ -1559,7 +1588,7 @@ expect(getWeeklyRange("2026-06-04")).toEqual({ from: "2026-06-01", to: "2026-06-
 - Create `Report` and `ReportVersion` records.
 - Set report status to `needs_review`.
 
-- [ ] **Step 3: Invalidate approval when data changes**
+- [x] **Step 3: Invalidate approval when data changes**
 
 Create `src/server/audit/reportInvalidation.ts`:
 
@@ -1577,7 +1606,7 @@ export function shouldInvalidateApproval(input: {
 }
 ```
 
-- [ ] **Step 4: Build report setup page**
+- [x] **Step 4: Build report setup page**
 
 `/reports/new` must provide:
 
@@ -1589,7 +1618,7 @@ export function shouldInvalidateApproval(input: {
 - Health pre-check summary.
 - Generate draft button.
 
-- [ ] **Step 5: Build report preview page**
+- [x] **Step 5: Build report preview page**
 
 `/reports/[reportId]` must show:
 
@@ -1606,7 +1635,7 @@ export function shouldInvalidateApproval(input: {
 - Editable client summary email.
 - Approve and reject actions.
 
-- [ ] **Step 6: Add report builder test**
+- [x] **Step 6: Add report builder test**
 
 Create `tests/unit/reportBuilder.test.ts` with a mocked metric set that verifies:
 
@@ -1623,7 +1652,7 @@ npm run test -- tests/unit/reportBuilder.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -1641,7 +1670,7 @@ git commit -m "feat: add report draft builder and preview"
 - Create: `src/app/api/reports/[reportId]/pdf/route.ts`
 - Test: `tests/unit/reportTemplate.test.ts`
 
-- [ ] **Step 1: Build master report template**
+- [x] **Step 1: Build master report template**
 
 `reportTemplate.tsx` must render these sections:
 
@@ -1660,7 +1689,7 @@ git commit -m "feat: add report draft builder and preview"
 - Client-safe anomaly highlights.
 - Source notes/data freshness footer.
 
-- [ ] **Step 2: Implement PDF renderer**
+- [x] **Step 2: Implement PDF renderer**
 
 Create `src/server/pdf/renderPdf.ts`:
 
@@ -1688,7 +1717,7 @@ export async function renderPdfFromHtml(html: string): Promise<Buffer> {
 }
 ```
 
-- [ ] **Step 3: Add PDF API**
+- [x] **Step 3: Add PDF API**
 
 `GET /api/reports/[reportId]/pdf` must:
 
@@ -1698,7 +1727,7 @@ export async function renderPdfFromHtml(html: string): Promise<Buffer> {
 - Save generated file path on `ReportVersion.pdfPath`.
 - Return `application/pdf`.
 
-- [ ] **Step 4: Test template output**
+- [x] **Step 4: Test template output**
 
 Create `tests/unit/reportTemplate.test.ts` that renders a report with Shopify revenue and asserts the HTML includes:
 
@@ -1714,7 +1743,7 @@ npm run test -- tests/unit/reportTemplate.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -1733,7 +1762,7 @@ git commit -m "feat: add master PDF report generator"
 - Create: `src/server/delivery/emailDraft.ts`
 - Test: `tests/unit/emailDraft.test.ts`
 
-- [ ] **Step 1: Build approval inbox**
+- [x] **Step 1: Build approval inbox**
 
 `/approvals` must group reports by:
 
@@ -1747,7 +1776,7 @@ git commit -m "feat: add master PDF report generator"
 
 Each row must show client, report period, revenue source, data quality rating, critical anomaly count, generated time, and actions.
 
-- [ ] **Step 2: Implement approval API**
+- [x] **Step 2: Implement approval API**
 
 `POST /api/reports/[reportId]/approve` must:
 
@@ -1757,7 +1786,7 @@ Each row must show client, report period, revenue source, data quality rating, c
 - Set report status to `approved`.
 - Store `approvedAt`.
 
-- [ ] **Step 3: Implement reject API**
+- [x] **Step 3: Implement reject API**
 
 `POST /api/reports/[reportId]/reject` must:
 
@@ -1765,7 +1794,7 @@ Each row must show client, report period, revenue source, data quality rating, c
 - Store `ApprovalEvent` with action `rejected`.
 - Set report status to `rejected`.
 
-- [ ] **Step 4: Implement editable email draft**
+- [x] **Step 4: Implement editable email draft**
 
 Create `src/server/delivery/emailDraft.ts`:
 
@@ -1796,7 +1825,7 @@ export function buildClientSummaryEmail(input: {
 }
 ```
 
-- [ ] **Step 5: Test email draft**
+- [x] **Step 5: Test email draft**
 
 Create `tests/unit/emailDraft.test.ts`:
 
@@ -1830,7 +1859,7 @@ npm run test -- tests/unit/emailDraft.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -1847,7 +1876,7 @@ git commit -m "feat: add approval inbox and email draft"
 - Create: `src/server/delivery/email.ts`
 - Test: `tests/unit/email.test.ts`
 
-- [ ] **Step 1: Implement SMTP sender**
+- [x] **Step 1: Implement SMTP sender**
 
 Create `src/server/delivery/email.ts`:
 
@@ -1889,7 +1918,7 @@ export async function sendReportEmail(input: {
 }
 ```
 
-- [ ] **Step 2: Implement send API**
+- [x] **Step 2: Implement send API**
 
 `POST /api/reports/[reportId]/send` must:
 
@@ -1900,7 +1929,7 @@ export async function sendReportEmail(input: {
 - Set report status to `sent` after successful delivery.
 - Set report status to `failed` after delivery failure and store the error.
 
-- [ ] **Step 3: Test sender without network**
+- [x] **Step 3: Test sender without network**
 
 Create `tests/unit/email.test.ts` that mocks `nodemailer.createTransport` and verifies:
 
@@ -1916,7 +1945,7 @@ npm run test -- tests/unit/email.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
@@ -1932,7 +1961,7 @@ git commit -m "feat: add approved report email delivery"
 - Create: `src/server/reporting/insights.ts`
 - Test: `tests/unit/insights.test.ts`
 
-- [ ] **Step 1: Implement rule-based insight generator**
+- [x] **Step 1: Implement rule-based insight generator**
 
 `generateInsightDrafts` must produce client-safe draft text from metrics, anomalies, and goals. Required insight types:
 
@@ -1950,7 +1979,7 @@ Required rule examples:
 - CPL exceeds target: recommend lead quality and audience review.
 - Shopify revenue is higher than platform conversion value: explain attribution difference.
 
-- [ ] **Step 2: Add provider adapter boundary**
+- [x] **Step 2: Add provider adapter boundary**
 
 `insights.ts` must expose:
 
@@ -1973,7 +2002,7 @@ export async function generateInsights(input: {
 
 The external provider branch deliberately falls back to rule-based text until credentials and review policy are configured.
 
-- [ ] **Step 3: Test insight rules**
+- [x] **Step 3: Test insight rules**
 
 Create `tests/unit/insights.test.ts` with a metric case where spend grows faster than revenue. Assert the generated recommendations include `Review budget allocation`.
 
@@ -1985,7 +2014,7 @@ npm run test -- tests/unit/insights.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
@@ -2003,7 +2032,7 @@ git commit -m "feat: add editable insight drafts"
 - Create: `tests/fixtures/shopify-week.csv`
 - Create: `tests/e2e/report-flow.spec.ts`
 
-- [ ] **Step 1: Add fixture data**
+- [x] **Step 1: Add fixture data**
 
 Create CSV fixtures with dates from `2026-06-01` through `2026-06-07`.
 
@@ -2031,7 +2060,7 @@ date,total_orders,total_revenue
 2026-06-02,35,52500
 ```
 
-- [ ] **Step 2: Add end-to-end test**
+- [x] **Step 2: Add end-to-end test**
 
 Create `tests/e2e/report-flow.spec.ts`:
 
@@ -2077,7 +2106,7 @@ npm run test:e2e -- tests/e2e/report-flow.spec.ts
 
 Expected: PASS.
 
-- [ ] **Step 3: Run full MVP verification**
+- [x] **Step 3: Run full MVP verification**
 
 Run:
 
@@ -2090,7 +2119,7 @@ npm run build
 
 Expected: all commands pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
@@ -2111,7 +2140,7 @@ git commit -m "test: cover complete MVP report workflow"
 - Create: `src/app/api/connections/oauth/route.ts`
 - Test: `tests/unit/directConnectorContracts.test.ts`
 
-- [ ] **Step 1: Add direct connection models**
+- [x] **Step 1: Add direct connection models**
 
 Extend `prisma/schema.prisma` with a credential model that stores encrypted tokens and authorization status:
 
@@ -2130,7 +2159,7 @@ model DirectCredential {
 }
 ```
 
-- [ ] **Step 2: Add connection screen**
+- [x] **Step 2: Add connection screen**
 
 `/connections` must show:
 
@@ -2142,7 +2171,7 @@ model DirectCredential {
 - Reconnect action.
 - Last direct sync result.
 
-- [ ] **Step 3: Implement each connector behind the existing `Connector` interface**
+- [x] **Step 3: Implement each connector behind the existing `Connector` interface**
 
 Each connector must return `NormalizedMetricRow[]` with the same source trace fields as script-assisted import.
 
@@ -2153,11 +2182,11 @@ Required direct connector status errors:
 - GA4: `GA4 direct connector requires property access and OAuth or service account credentials`.
 - Shopify: `Shopify direct connector requires store domain and read orders access token`.
 
-- [ ] **Step 4: Test connector contract compatibility**
+- [x] **Step 4: Test connector contract compatibility**
 
 Create `tests/unit/directConnectorContracts.test.ts` that asserts each direct connector exposes `connectorType` and `fetch`, and that authorization errors contain the connector name.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
