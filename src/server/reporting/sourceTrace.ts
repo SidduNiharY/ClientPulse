@@ -40,11 +40,38 @@ export function buildSourceTraceSummary(
   return Array.from(tracesBySource.values());
 }
 
+export function collectSourceTraceDetails(
+  rows: NormalizedMetricRow[]
+): SourceTrace[] {
+  const tracesByKey = new Map<string, SourceTrace>();
+
+  for (const row of rows) {
+    const key = buildDetailedTraceKey(row.sourceTrace);
+
+    if (!tracesByKey.has(key)) {
+      tracesByKey.set(key, row.sourceTrace);
+    }
+  }
+
+  return Array.from(tracesByKey.values());
+}
+
 function buildTraceKey(trace: SourceTrace) {
   return [
     trace.platform,
     trace.connectorType,
     trace.sourceAccountId,
+    trace.sourceReference
+  ].join(":");
+}
+
+function buildDetailedTraceKey(trace: SourceTrace) {
+  return [
+    trace.platform,
+    trace.connectorType,
+    trace.sourceAccountId,
+    trace.originalFieldName,
+    trace.syncRunId,
     trace.sourceReference
   ].join(":");
 }
