@@ -3,9 +3,17 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { BigQueryConnector } from "@/server/connectors/bigQueryConnector";
 import { CsvConnector } from "@/server/connectors/csvConnector";
+import { GA4ApiConnector } from "@/server/connectors/ga4ApiConnector";
+import { GoogleAdsApiConnector } from "@/server/connectors/googleAdsApiConnector";
+import { MetaApiConnector } from "@/server/connectors/metaApiConnector";
 import { NeedsAuthorizationConnector } from "@/server/connectors/directStubs";
+import { ShopifyApiConnector } from "@/server/connectors/shopifyApiConnector";
 import { GoogleSheetsConnector } from "@/server/connectors/googleSheetsConnector";
-import type { Connector, IngestionMethod } from "@/server/connectors/types";
+import type {
+  Connector,
+  IngestionMethod,
+  Platform
+} from "@/server/connectors/types";
 import { db } from "@/server/db/client";
 import { runDemoImport } from "@/server/demo/memoryStore";
 
@@ -19,20 +27,33 @@ const importRequestSchema = z.object({
   connectorConfig: z.record(z.string(), z.string()).default({})
 });
 
-function createConnector(ingestionMethod: IngestionMethod): Connector {
-  if (ingestionMethod === "csv_upload" || ingestionMethod === "platform_script") {
+function createConnector(input: {
+  ingestionMethod: IngestionMethod;
+  platform: Platform;
+}): Connector {
+  if (input.ingestionMethod === "direct_api") {
+    if (input.platform === "google_ads") return new GoogleAdsApiConnector();
+    if (input.platform === "meta_ads") return new MetaApiConnector();
+    if (input.platform === "ga4") return new GA4ApiConnector();
+    if (input.platform === "shopify") return new ShopifyApiConnector();
+  }
+
+  if (
+    input.ingestionMethod === "csv_upload" ||
+    input.ingestionMethod === "platform_script"
+  ) {
     return new CsvConnector();
   }
 
-  if (ingestionMethod === "google_sheets") {
+  if (input.ingestionMethod === "google_sheets") {
     return new GoogleSheetsConnector();
   }
 
-  if (ingestionMethod === "bigquery") {
+  if (input.ingestionMethod === "bigquery") {
     return new BigQueryConnector();
   }
 
-  return new NeedsAuthorizationConnector(ingestionMethod);
+  return new NeedsAuthorizationConnector(input.ingestionMethod);
 }
 
 function jsonConfigToRecord(value: Prisma.JsonValue): Record<string, string> {
@@ -125,7 +146,10 @@ export async function POST(request: Request) {
     syncRunId = syncRun.id;
     connectorType = accountMapping.ingestionMethod;
 
-    const connector = createConnector(accountMapping.ingestionMethod);
+    const connector = createConnector({
+      ingestionMethod: accountMapping.ingestionMethod,
+      platform: accountMapping.platform
+    });
     const connectorConfig = {
       ...jsonConfigToRecord(accountMapping.config),
       ...input.connectorConfig,

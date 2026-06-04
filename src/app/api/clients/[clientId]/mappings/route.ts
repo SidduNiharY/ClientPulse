@@ -77,6 +77,10 @@ export async function GET(
       }
     });
 
+    if (mappings.length === 0) {
+      return NextResponse.json(listDemoMappings(clientId).map(serializeMapping));
+    }
+
     return NextResponse.json(mappings.map(serializeMapping));
   } catch {
     return NextResponse.json(listDemoMappings(clientId).map(serializeMapping));

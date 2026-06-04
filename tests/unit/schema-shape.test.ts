@@ -10,5 +10,6 @@ describe("Prisma schema", () => {
     expect(prisma.metricRow).toBeDefined();
     expect(prisma.report).toBeDefined();
     expect(prisma.deliveryLog).toBeDefined();
+    expect(prisma.directCredential).toBeDefined();
   });
 });

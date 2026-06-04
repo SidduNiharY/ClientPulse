@@ -61,15 +61,18 @@ export function ImportForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setStatus(null);
     setError(null);
 
-    if (!selectedMapping) {
+    const mapping = selectedMapping ?? (await fetchSelectedMapping());
+
+    if (!mapping) {
       setError("Add an account mapping for this platform before importing.");
       return;
     }
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const file = formData.get("csvFile");
 
     if (!(file instanceof File)) {
@@ -86,7 +89,7 @@ export function ImportForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId,
-          accountMappingId: selectedMapping.id,
+          accountMappingId: mapping.id,
           dateRange: {
             from: String(formData.get("dateFrom") ?? "2026-06-01"),
             to: String(formData.get("dateTo") ?? "2026-06-07")
@@ -109,7 +112,7 @@ export function ImportForm() {
       }
 
       setStatus(`Import completed (${result.rowsImported ?? 0} rows)`);
-      event.currentTarget.reset();
+      form.reset();
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
@@ -232,7 +235,7 @@ export function ImportForm() {
       <div className="lg:col-span-2">
         <button
           className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !clientId}
           type="submit"
         >
           {isSubmitting ? "Importing..." : "Run import"}
@@ -240,4 +243,19 @@ export function ImportForm() {
       </div>
     </form>
   );
+
+  async function fetchSelectedMapping() {
+    const response = await fetch(`/api/clients/${clientId}/mappings`);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const refreshedMappings = (await response.json()) as MappingOption[];
+    setMappings(refreshedMappings);
+
+    return (
+      refreshedMappings.find((mapping) => mapping.platform === platform) ?? null
+    );
+  }
 }

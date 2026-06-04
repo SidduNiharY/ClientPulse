@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { CsvConnector } from "@/server/connectors/csvConnector";
 import type {
   DateRange,
@@ -112,20 +115,128 @@ type DemoStore = {
   reports: DemoReport[];
 };
 
-const globalForDemoStore = globalThis as unknown as {
-  reportingDemoStore?: DemoStore;
+const storePath = join(tmpdir(), "reports-generator-demo-store.json");
+
+type StoredDemoStore = Omit<
+  DemoStore,
+  "clients" | "mappings" | "syncRuns" | "reports"
+> & {
+  clients: Array<Omit<DemoClient, "createdAt"> & { createdAt: string }>;
+  mappings: Array<Omit<DemoMapping, "createdAt"> & { createdAt: string }>;
+  syncRuns: Array<
+    Omit<DemoSyncRun, "dateFrom" | "dateTo" | "startedAt" | "finishedAt"> & {
+      dateFrom: string;
+      dateTo: string;
+      startedAt: string;
+      finishedAt: string | null;
+    }
+  >;
+  reports: Array<
+    Omit<
+      DemoReport,
+      "dateFrom" | "dateTo" | "approvedAt" | "sentAt" | "createdAt" | "updatedAt" | "versions"
+    > & {
+      dateFrom: string;
+      dateTo: string;
+      approvedAt: string | null;
+      sentAt: string | null;
+      createdAt: string;
+      updatedAt: string;
+      versions: Array<
+        Omit<DemoReportVersion, "createdAt" | "insights" | "anomalies" | "qualityScores"> & {
+          createdAt: string;
+          insights: Array<
+            DemoReportVersion["insights"][number] & { createdAt: string }
+          >;
+          anomalies: Array<
+            Omit<
+              DemoReportVersion["anomalies"][number],
+              "dismissedAt"
+            > & { dismissedAt: string | null }
+          >;
+          qualityScores: Array<
+            Omit<DemoReportVersion["qualityScores"][number], "createdAt"> & {
+              createdAt: string;
+            }
+          >;
+        }
+      >;
+    }
+  >;
 };
 
 function store() {
-  globalForDemoStore.reportingDemoStore ??= {
+  if (!existsSync(storePath)) {
+    return emptyStore();
+  }
+
+  try {
+    return hydrateStore(
+      JSON.parse(readFileSync(storePath, "utf8")) as StoredDemoStore
+    );
+  } catch {
+    return emptyStore();
+  }
+}
+
+function emptyStore(): DemoStore {
+  return {
     clients: [],
     mappings: [],
     syncRuns: [],
     metricRows: [],
     reports: []
   };
+}
 
-  return globalForDemoStore.reportingDemoStore;
+function persistStore(demoStore: DemoStore) {
+  writeFileSync(storePath, JSON.stringify(demoStore), "utf8");
+}
+
+function hydrateStore(raw: StoredDemoStore): DemoStore {
+  return {
+    clients: raw.clients.map((client) => ({
+      ...client,
+      createdAt: new Date(client.createdAt)
+    })),
+    mappings: raw.mappings.map((mapping) => ({
+      ...mapping,
+      createdAt: new Date(mapping.createdAt)
+    })),
+    syncRuns: raw.syncRuns.map((run) => ({
+      ...run,
+      dateFrom: new Date(run.dateFrom),
+      dateTo: new Date(run.dateTo),
+      startedAt: new Date(run.startedAt),
+      finishedAt: run.finishedAt ? new Date(run.finishedAt) : null
+    })),
+    metricRows: raw.metricRows,
+    reports: raw.reports.map((report) => ({
+      ...report,
+      dateFrom: new Date(report.dateFrom),
+      dateTo: new Date(report.dateTo),
+      approvedAt: report.approvedAt ? new Date(report.approvedAt) : null,
+      sentAt: report.sentAt ? new Date(report.sentAt) : null,
+      createdAt: new Date(report.createdAt),
+      updatedAt: new Date(report.updatedAt),
+      versions: report.versions.map((version) => ({
+        ...version,
+        createdAt: new Date(version.createdAt),
+        insights: version.insights.map((insight) => ({
+          ...insight,
+          createdAt: new Date(insight.createdAt)
+        })),
+        anomalies: version.anomalies.map((anomaly) => ({
+          ...anomaly,
+          dismissedAt: anomaly.dismissedAt ? new Date(anomaly.dismissedAt) : null
+        })),
+        qualityScores: version.qualityScores.map((qualityScore) => ({
+          ...qualityScore,
+          createdAt: new Date(qualityScore.createdAt)
+        }))
+      }))
+    }))
+  };
 }
 
 export function listDemoClients() {
@@ -144,7 +255,8 @@ export function createDemoClient(input: {
   primaryEmail: string;
   currency: string;
 }) {
-  const existing = store().clients.find(
+  const demoStore = store();
+  const existing = demoStore.clients.find(
     (client) => client.name === input.name && client.primaryEmail === input.primaryEmail
   );
 
@@ -158,7 +270,8 @@ export function createDemoClient(input: {
     createdAt: new Date()
   };
 
-  store().clients.unshift(client);
+  demoStore.clients.unshift(client);
+  persistStore(demoStore);
 
   return client;
 }
@@ -178,6 +291,7 @@ export function createDemoMapping(
     config?: Record<string, string>;
   }
 ) {
+  const demoStore = store();
   const mapping: DemoMapping = {
     id: `mapping_${randomUUID()}`,
     clientId,
@@ -191,13 +305,16 @@ export function createDemoMapping(
     createdAt: new Date()
   };
 
-  store().mappings.unshift(mapping);
+  demoStore.mappings.unshift(mapping);
+  persistStore(demoStore);
 
   return mapping;
 }
 
 export function listDemoSyncRuns() {
-  return [...store().syncRuns]
+  const demoStore = store();
+
+  return [...demoStore.syncRuns]
     .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
     .slice(0, 20)
     .map((run) => ({
@@ -208,7 +325,7 @@ export function listDemoSyncRuns() {
       accountMapping: {
         platform: run.platform,
         accountName:
-          store().mappings.find((mapping) => mapping.id === run.accountMappingId)
+          demoStore.mappings.find((mapping) => mapping.id === run.accountMappingId)
             ?.accountName ?? "Demo account",
         ingestionMethod: run.ingestionMethod
       }
@@ -221,7 +338,8 @@ export async function runDemoImport(input: {
   dateRange: DateRange;
   connectorConfig: Record<string, string>;
 }) {
-  const mapping = store().mappings.find(
+  const demoStore = store();
+  const mapping = demoStore.mappings.find(
     (item) => item.id === input.accountMappingId && item.clientId === input.clientId
   );
 
@@ -244,7 +362,8 @@ export async function runDemoImport(input: {
     finishedAt: null
   };
 
-  store().syncRuns.unshift(syncRun);
+  demoStore.syncRuns.unshift(syncRun);
+  persistStore(demoStore);
 
   try {
     const result = await new CsvConnector().fetch({
@@ -260,10 +379,11 @@ export async function runDemoImport(input: {
       }
     });
 
-    store().metricRows.push(...result.rows);
+    demoStore.metricRows.push(...result.rows);
     syncRun.status = "succeeded";
     syncRun.rowsImported = result.rowsImported;
     syncRun.finishedAt = new Date();
+    persistStore(demoStore);
 
     return {
       syncRunId: syncRun.id,
@@ -276,6 +396,7 @@ export async function runDemoImport(input: {
     syncRun.errorMessage =
       error instanceof Error ? error.message : "Import failed";
     syncRun.finishedAt = new Date();
+    persistStore(demoStore);
     throw error;
   }
 }
@@ -358,6 +479,7 @@ export function buildDemoReportDraft(request: ReportBuildRequest) {
   };
 
   demoStore.reports.unshift(report);
+  persistStore(demoStore);
 
   return {
     reportId,
@@ -384,7 +506,8 @@ export function getDemoReportForPreview(reportId: string) {
 }
 
 export function approveDemoReport(reportId: string) {
-  const report = store().reports.find((item) => item.id === reportId);
+  const demoStore = store();
+  const report = demoStore.reports.find((item) => item.id === reportId);
 
   if (!report) {
     return null;
@@ -393,6 +516,7 @@ export function approveDemoReport(reportId: string) {
   report.status = "approved";
   report.approvedAt = new Date();
   report.updatedAt = new Date();
+  persistStore(demoStore);
 
   return {
     id: report.id,
@@ -402,7 +526,8 @@ export function approveDemoReport(reportId: string) {
 }
 
 export function sendDemoReport(reportId: string) {
-  const report = store().reports.find((item) => item.id === reportId);
+  const demoStore = store();
+  const report = demoStore.reports.find((item) => item.id === reportId);
 
   if (!report) {
     return { status: 404 as const, body: { error: "Report not found" } };
@@ -418,6 +543,7 @@ export function sendDemoReport(reportId: string) {
   report.status = "sent";
   report.sentAt = new Date();
   report.updatedAt = new Date();
+  persistStore(demoStore);
 
   return {
     status: 200 as const,

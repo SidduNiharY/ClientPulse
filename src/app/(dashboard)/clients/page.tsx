@@ -18,6 +18,13 @@ async function getClients(): Promise<ClientListItem[]> {
       }
     });
 
+    if (clients.length === 0) {
+      return listDemoClients().map((client) => ({
+        ...client,
+        createdAt: client.createdAt.toISOString()
+      }));
+    }
+
     return clients.map((client) => ({
       ...client,
       createdAt: client.createdAt.toISOString()

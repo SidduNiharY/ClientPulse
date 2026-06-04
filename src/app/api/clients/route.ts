@@ -44,6 +44,10 @@ export async function GET() {
       }
     });
 
+    if (clients.length === 0) {
+      return NextResponse.json(listDemoClients().map(serializeClient));
+    }
+
     return NextResponse.json(clients.map(serializeClient));
   } catch {
     return NextResponse.json(listDemoClients().map(serializeClient));

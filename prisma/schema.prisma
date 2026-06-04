@@ -112,6 +112,22 @@ model Connector {
   accountMapping     AccountMapping        @relation(fields: [accountMappingId], references: [id])
 }
 
+model DirectCredential {
+  id               String   @id @default(cuid())
+  accountMappingId String
+  provider         String
+  encryptedToken   String
+  refreshToken     String?
+  expiresAt        DateTime?
+  scopes           String[]
+  status           String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([accountMappingId])
+  @@index([provider, status])
+}
+
 model SyncRun {
   id               String         @id @default(cuid())
   clientId         String

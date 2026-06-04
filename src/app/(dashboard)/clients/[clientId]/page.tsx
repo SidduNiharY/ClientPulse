@@ -43,6 +43,13 @@ async function getMappings(clientId: string): Promise<AccountMappingItem[]> {
       }
     });
 
+    if (mappings.length === 0) {
+      return listDemoMappings(clientId).map((mapping) => ({
+        ...mapping,
+        createdAt: mapping.createdAt.toISOString()
+      }));
+    }
+
     return mappings.map((mapping) => ({
       ...mapping,
       createdAt: mapping.createdAt.toISOString()
