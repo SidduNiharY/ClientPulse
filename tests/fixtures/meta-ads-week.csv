@@ -1,0 +1,8 @@
+date,campaign,impressions,clicks,spend,purchases,purchase_value,leads
+2026-06-01,Prospecting,2000,160,4000,8,12000,5
+2026-06-02,Prospecting,2200,180,4500,9,13500,6
+2026-06-03,Prospecting,2100,170,4300,8,12800,5
+2026-06-04,Retargeting,1800,150,3800,10,17000,4
+2026-06-05,Retargeting,1900,155,3950,11,18500,4
+2026-06-06,Lookalike,2500,205,5100,12,21000,7
+2026-06-07,Lookalike,2600,215,5300,13,22500,8

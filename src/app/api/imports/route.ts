@@ -7,6 +7,7 @@ import { NeedsAuthorizationConnector } from "@/server/connectors/directStubs";
 import { GoogleSheetsConnector } from "@/server/connectors/googleSheetsConnector";
 import type { Connector, IngestionMethod } from "@/server/connectors/types";
 import { db } from "@/server/db/client";
+import { runDemoImport } from "@/server/demo/memoryStore";
 
 const importRequestSchema = z.object({
   clientId: z.string().min(1),
@@ -188,7 +189,18 @@ export async function POST(request: Request) {
       warnings: result.warnings
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Import failed";
+    let message = error instanceof Error ? error.message : "Import failed";
+
+    if (!syncRunId) {
+      try {
+        const result = await runDemoImport(input);
+
+        return NextResponse.json(result);
+      } catch (demoError) {
+        message =
+          demoError instanceof Error ? demoError.message : "Import failed";
+      }
+    }
 
     if (syncRunId) {
       await db.syncRun.update({

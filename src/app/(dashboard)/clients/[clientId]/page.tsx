@@ -3,6 +3,7 @@ import {
   type AccountMappingItem
 } from "@/components/AccountMappingForm";
 import { db } from "@/server/db/client";
+import { getDemoClient, listDemoMappings } from "@/server/demo/memoryStore";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,15 @@ async function getClient(clientId: string) {
       select: { id: true, name: true, primaryEmail: true }
     });
   } catch {
-    return null;
+    const client = getDemoClient(clientId);
+
+    return client
+      ? {
+          id: client.id,
+          name: client.name,
+          primaryEmail: client.primaryEmail
+        }
+      : null;
   }
 }
 
@@ -39,7 +48,10 @@ async function getMappings(clientId: string): Promise<AccountMappingItem[]> {
       createdAt: mapping.createdAt.toISOString()
     }));
   } catch {
-    return [];
+    return listDemoMappings(clientId).map((mapping) => ({
+      ...mapping,
+      createdAt: mapping.createdAt.toISOString()
+    }));
   }
 }
 

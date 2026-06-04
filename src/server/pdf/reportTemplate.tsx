@@ -1,4 +1,3 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import type { ReportDraftSnapshot } from "@/server/reporting/reportBuilder";
 
 export type ReportTemplateInput = {
@@ -7,144 +6,100 @@ export type ReportTemplateInput = {
   snapshot: ReportDraftSnapshot;
 };
 
-export function ReportTemplate({
-  clientName,
-  periodLabel,
-  snapshot
-}: ReportTemplateInput) {
+export function renderReportHtml(input: ReportTemplateInput): string {
+  const { snapshot } = input;
   const showGoogleAds =
     snapshot.adSource === "google_ads" ||
     snapshot.adSource === "google_ads_meta_ads";
   const showMetaAds =
     snapshot.adSource === "meta_ads" ||
     snapshot.adSource === "google_ads_meta_ads";
-
-  return (
-    <main className="report">
-      <section className="cover">
-        <p className="eyebrow">Client performance report</p>
-        <h1>{clientName}</h1>
-        <p>{periodLabel}</p>
-      </section>
-
-      <section>
-        <h2>Executive summary</h2>
-        <p>
-          This report uses {snapshot.revenueSource.replaceAll("_", " ")} as the
-          selected revenue source and includes audited source notes for every
-          imported metric.
-        </p>
-      </section>
-
-      <section>
-        <h2>KPI grid</h2>
-        <div className="grid">
-          <MetricCard label="Spend" value={snapshot.adTotals.spend} />
-          <MetricCard label="Selected revenue" value={snapshot.selectedRevenue} />
-          <MetricCard label="Blended ROAS" value={snapshot.derivedMetrics.roas} />
-          <MetricCard label="MER" value={snapshot.derivedMetrics.mer} />
-        </div>
-      </section>
-
-      {showGoogleAds ? (
-        <section>
-          <h2>Google Ads</h2>
-          <p>
-            Google Ads contributed to the paid media KPI set for this report
-            period.
-          </p>
-        </section>
-      ) : null}
-
-      {showMetaAds ? (
-        <section>
-          <h2>Meta Ads</h2>
-          <p>
-            Meta Ads contributed to the paid media KPI set for this report
-            period.
-          </p>
-        </section>
-      ) : null}
-
-      <section>
-        <h2>{getRevenueSourceLabel(snapshot.revenueSource)}</h2>
-        <p>Revenue source value: {snapshot.selectedRevenue}</p>
-      </section>
-
-      <section>
-        <h2>Trend charts</h2>
-        <div className="chart-placeholder">Trend chart data prepared</div>
-      </section>
-
-      <section>
-        <h2>Top campaigns</h2>
-        <p>Campaign ranking will use imported campaign dimensions.</p>
-      </section>
-
-      <section>
-        <h2>Insights and recommendations</h2>
-        <ul>
-          {snapshot.insights.map((insight) => (
-            <li key={`${insight.insightType}-${insight.sourceMetric}`}>
-              {insight.text}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <h2>Blended ROAS/MER for ecommerce clients</h2>
-        <p>
-          Blended ROAS: {formatValue(snapshot.derivedMetrics.roas)}. MER:{" "}
-          {formatValue(snapshot.derivedMetrics.mer)}.
-        </p>
-      </section>
-
-      <section>
-        <h2>Goal comparison</h2>
-        <p>Goal comparisons are included when client goals are configured.</p>
-      </section>
-
-      {snapshot.budgetPacing ? (
-        <section>
-          <h2>Budget pacing</h2>
-          <p>
-            Projected month-end spend:{" "}
-            {snapshot.budgetPacing.projectedMonthEndSpend}
-          </p>
-        </section>
-      ) : null}
-
-      <section>
-        <h2>Client-safe anomaly highlights</h2>
-        <ul>
-          {snapshot.anomalies
-            .filter((anomaly) => anomaly.clientSafe)
-            .map((anomaly) => (
-              <li key={`${anomaly.anomalyType}-${anomaly.message}`}>
-                {anomaly.message}
-              </li>
-            ))}
-        </ul>
-      </section>
-
-      <footer>
-        <h2>Source notes</h2>
-        <p>Data freshness rating: {snapshot.dataQuality.rating}</p>
-        <ul>
-          {snapshot.sourceTraceSummary.map((trace) => (
-            <li key={`${trace.platform}-${trace.sourceReference}`}>
-              {trace.platform} via {trace.connectorType}: {trace.sourceReference}
-            </li>
-          ))}
-        </ul>
-      </footer>
-    </main>
-  );
-}
-
-export function renderReportHtml(input: ReportTemplateInput): string {
-  const body = renderToStaticMarkup(<ReportTemplate {...input} />);
+  const body = [
+    `<section class="cover">
+      <p class="eyebrow">Client performance report</p>
+      <h1>${escapeHtml(input.clientName)}</h1>
+      <p>${escapeHtml(input.periodLabel)}</p>
+    </section>`,
+    section(
+      "Executive summary",
+      `<p>This report uses ${escapeHtml(
+        snapshot.revenueSource.replaceAll("_", " ")
+      )} as the selected revenue source and includes audited source notes for every imported metric.</p>`
+    ),
+    section(
+      "KPI grid",
+      `<div class="grid">
+        ${metricCard("Spend", snapshot.adTotals.spend)}
+        ${metricCard("Selected revenue", snapshot.selectedRevenue)}
+        ${metricCard("Blended ROAS", snapshot.derivedMetrics.roas)}
+        ${metricCard("MER", snapshot.derivedMetrics.mer)}
+      </div>`
+    ),
+    showGoogleAds
+      ? section(
+          "Google Ads",
+          "<p>Google Ads contributed to the paid media KPI set for this report period.</p>"
+        )
+      : "",
+    showMetaAds
+      ? section(
+          "Meta Ads",
+          "<p>Meta Ads contributed to the paid media KPI set for this report period.</p>"
+        )
+      : "",
+    section(
+      getRevenueSourceLabel(snapshot.revenueSource),
+      `<p>Revenue source value: ${formatValue(snapshot.selectedRevenue)}</p>`
+    ),
+    section(
+      "Trend charts",
+      '<div class="chart-placeholder">Trend chart data prepared</div>'
+    ),
+    section(
+      "Top campaigns",
+      "<p>Campaign ranking will use imported campaign dimensions.</p>"
+    ),
+    section(
+      "Insights and recommendations",
+      list(snapshot.insights.map((insight) => insight.text))
+    ),
+    section(
+      "Blended ROAS/MER for ecommerce clients",
+      `<p>Blended ROAS: ${formatValue(
+        snapshot.derivedMetrics.roas
+      )}. MER: ${formatValue(snapshot.derivedMetrics.mer)}.</p>`
+    ),
+    section(
+      "Goal comparison",
+      "<p>Goal comparisons are included when client goals are configured.</p>"
+    ),
+    snapshot.budgetPacing
+      ? section(
+          "Budget pacing",
+          `<p>Projected month-end spend: ${formatValue(
+            snapshot.budgetPacing.projectedMonthEndSpend
+          )}</p>`
+        )
+      : "",
+    section(
+      "Client-safe anomaly highlights",
+      list(
+        snapshot.anomalies
+          .filter((anomaly) => anomaly.clientSafe)
+          .map((anomaly) => anomaly.message)
+      )
+    ),
+    `<footer>
+      <h2>Source notes</h2>
+      <p>Data freshness rating: ${escapeHtml(snapshot.dataQuality.rating)}</p>
+      ${list(
+        snapshot.sourceTraceSummary.map(
+          (trace) =>
+            `${trace.platform} via ${trace.connectorType}: ${trace.sourceReference}`
+        )
+      )}
+    </footer>`
+  ].join("");
 
   return `<!doctype html>
 <html>
@@ -166,23 +121,29 @@ export function renderReportHtml(input: ReportTemplateInput): string {
     .chart-placeholder { border: 1px dashed #087f70; border-radius: 6px; padding: 24px; color: #087f70; }
   </style>
 </head>
-<body>${body}</body>
+<body><main class="report">${body}</main></body>
 </html>`;
 }
 
-function MetricCard({
-  label,
-  value
-}: {
-  label: string;
-  value: number | null;
-}) {
-  return (
-    <div className="metric">
-      <span>{label}</span>
-      <strong>{formatValue(value)}</strong>
-    </div>
-  );
+function section(title: string, body: string) {
+  return `<section><h2>${escapeHtml(title)}</h2>${body}</section>`;
+}
+
+function metricCard(label: string, value: number | null) {
+  return `<div class="metric">
+    <span>${escapeHtml(label)}</span>
+    <strong>${formatValue(value)}</strong>
+  </div>`;
+}
+
+function list(items: string[]) {
+  if (items.length === 0) {
+    return "<p>No client-safe items detected for this section.</p>";
+  }
+
+  return `<ul>${items
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("")}</ul>`;
 }
 
 function getRevenueSourceLabel(revenueSource: string) {
@@ -196,7 +157,7 @@ function getRevenueSourceLabel(revenueSource: string) {
 }
 
 function formatValue(value: number | null) {
-  return value === null ? "N/A" : String(Number(value.toFixed(2)));
+  return value === null ? "N/A" : escapeHtml(String(Number(value.toFixed(2))));
 }
 
 function escapeHtml(value: string) {

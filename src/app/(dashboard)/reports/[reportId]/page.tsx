@@ -1,11 +1,35 @@
+import { ReportActions } from "@/components/ReportActions";
 import { db } from "@/server/db/client";
+import { getDemoReportForPreview } from "@/server/demo/memoryStore";
 import type { ReportDraftSnapshot } from "@/server/reporting/reportBuilder";
 
 export const dynamic = "force-dynamic";
 
-async function getReport(reportId: string) {
+type ReportPreviewRecord = {
+  client: { name: string };
+  status: string;
+  versions: Array<{
+    metricsSnapshot: unknown;
+    insights: Array<{
+      insightType: string;
+      text: string;
+    }>;
+    anomalies: Array<{
+      anomalyType: string;
+      severity: string;
+      message: string;
+    }>;
+    qualityScores: Array<{
+      score: number;
+      rating: string;
+    }>;
+  }>;
+  emailDrafts: Array<{ body: string }>;
+};
+
+async function getReport(reportId: string): Promise<ReportPreviewRecord | null> {
   try {
-    return await db.report.findUnique({
+    return (await db.report.findUnique({
       where: { id: reportId },
       include: {
         client: true,
@@ -20,9 +44,9 @@ async function getReport(reportId: string) {
         },
         emailDrafts: true
       }
-    });
+    })) as unknown as ReportPreviewRecord | null;
   } catch {
-    return null;
+    return getDemoReportForPreview(reportId);
   }
 }
 
@@ -84,7 +108,7 @@ export default async function ReportPreviewPage({
         <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
           <p className="text-sm text-[var(--muted)]">Revenue source</p>
           <p className="mt-2 font-semibold">
-            {snapshot?.revenueSource ?? "Unset"}
+            {snapshot ? getRevenueSourceLabel(snapshot.revenueSource) : "Unset"}
           </p>
         </div>
         <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -213,14 +237,20 @@ export default async function ReportPreviewPage({
         />
       </section>
 
-      <div className="flex flex-wrap gap-3">
-        <button className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white">
-          Approve
-        </button>
-        <button className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-semibold">
-          Reject
-        </button>
-      </div>
+      <ReportActions
+        initialStatus={report?.status ?? snapshot?.status ?? "needs_review"}
+        reportId={reportId}
+      />
     </section>
   );
+}
+
+function getRevenueSourceLabel(revenueSource: string) {
+  if (revenueSource === "shopify") return "Shopify revenue";
+  if (revenueSource === "ga4") return "GA4 revenue";
+  if (revenueSource === "google_ads_conversion_value") {
+    return "Google Ads conversion value";
+  }
+  if (revenueSource === "meta_purchase_value") return "Meta purchase value";
+  return "Manual revenue";
 }

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/server/db/client";
 import { buildClientSummaryEmail } from "@/server/delivery/emailDraft";
 import { sendReportEmail } from "@/server/delivery/email";
+import { sendDemoReport } from "@/server/demo/memoryStore";
 import { renderReportHtml } from "@/server/pdf/reportTemplate";
 import { renderPdfFromHtml } from "@/server/pdf/renderPdf";
 import type { ReportDraftSnapshot } from "@/server/reporting/reportBuilder";
@@ -36,20 +37,29 @@ export async function POST(
     );
   }
 
-  const report = await db.report.findUnique({
-    where: { id: reportId },
-    include: {
-      client: true,
-      versions: {
-        orderBy: { versionNumber: "desc" },
-        take: 1
-      },
-      emailDrafts: {
-        orderBy: { createdAt: "desc" },
-        take: 1
+  let report;
+
+  try {
+    report = await db.report.findUnique({
+      where: { id: reportId },
+      include: {
+        client: true,
+        versions: {
+          orderBy: { versionNumber: "desc" },
+          take: 1
+        },
+        emailDrafts: {
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
       }
-    }
-  });
+    });
+  } catch {
+    const result = sendDemoReport(reportId);
+
+    return NextResponse.json(result.body, { status: result.status });
+  }
+
   const version = report?.versions[0];
 
   if (!report || !version) {

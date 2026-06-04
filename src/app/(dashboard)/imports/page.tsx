@@ -1,4 +1,6 @@
+import { ImportForm } from "@/components/ImportForm";
 import { db } from "@/server/db/client";
+import { listDemoSyncRuns } from "@/server/demo/memoryStore";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +21,11 @@ async function getSyncRuns() {
       }
     });
   } catch {
-    return [];
+    return listDemoSyncRuns();
   }
 }
 
-function formatDate(value: Date | null) {
+function formatDate(value: Date | string | null) {
   if (!value) {
     return "Not finished";
   }
@@ -31,7 +33,7 @@ function formatDate(value: Date | null) {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short"
-  }).format(value);
+  }).format(new Date(value));
 }
 
 export default async function ImportsPage() {
@@ -45,6 +47,8 @@ export default async function ImportsPage() {
         </p>
         <h1 className="text-3xl font-semibold tracking-normal">Import runs</h1>
       </div>
+
+      <ImportForm />
 
       <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-lg font-semibold tracking-normal">

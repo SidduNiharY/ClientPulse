@@ -1,7 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/server/db/client";
+import { createDemoClient, listDemoClients } from "@/server/demo/memoryStore";
 
 const clientCreateSchema = z.object({
   name: z.string().min(1),
@@ -46,7 +46,7 @@ export async function GET() {
 
     return NextResponse.json(clients.map(serializeClient));
   } catch {
-    return NextResponse.json([]);
+    return NextResponse.json(listDemoClients().map(serializeClient));
   }
 }
 
@@ -76,12 +76,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(serializeClient(client), { status: 201 });
   } catch {
-    return NextResponse.json(
-      serializeClient({
-        id: `client_${randomUUID()}`,
-        ...parsed.data
-      }),
-      { status: 201 }
-    );
+    return NextResponse.json(serializeClient(createDemoClient(parsed.data)), {
+      status: 201
+    });
   }
 }

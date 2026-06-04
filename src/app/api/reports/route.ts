@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildDemoReportDraft } from "@/server/demo/memoryStore";
 import { buildReportDraft } from "@/server/reporting/reportBuilder";
 
 const reportCreateSchema = z.object({
@@ -40,12 +41,26 @@ export async function POST(request: Request) {
       status: report.status
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Could not generate report"
-      },
-      { status: 500 }
-    );
+    try {
+      const report = buildDemoReportDraft(parsed.data);
+
+      return NextResponse.json({
+        id: report.reportId,
+        versionId: report.versionId,
+        status: report.status
+      });
+    } catch (demoError) {
+      return NextResponse.json(
+        {
+          error:
+            demoError instanceof Error
+              ? demoError.message
+              : error instanceof Error
+                ? error.message
+                : "Could not generate report"
+        },
+        { status: 500 }
+      );
+    }
   }
 }

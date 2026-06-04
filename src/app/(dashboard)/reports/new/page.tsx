@@ -126,7 +126,7 @@ export default function NewReportPage() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="selectedDate">
-              Date
+              Report date
             </label>
             <input
               className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
@@ -140,7 +140,7 @@ export default function NewReportPage() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="adSource">
-              Ad data source
+              Ad source
             </label>
             <select
               className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"

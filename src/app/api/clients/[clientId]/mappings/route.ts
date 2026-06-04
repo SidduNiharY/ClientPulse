@@ -1,8 +1,11 @@
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/server/db/client";
+import {
+  createDemoMapping,
+  listDemoMappings
+} from "@/server/demo/memoryStore";
 
 const platformSchema = z.enum([
   "google_ads",
@@ -76,7 +79,7 @@ export async function GET(
 
     return NextResponse.json(mappings.map(serializeMapping));
   } catch {
-    return NextResponse.json([]);
+    return NextResponse.json(listDemoMappings(clientId).map(serializeMapping));
   }
 }
 
@@ -123,15 +126,21 @@ export async function POST(
     return NextResponse.json(serializeMapping(mapping), { status: 201 });
   } catch {
     return NextResponse.json(
-      serializeMapping({
-        id: `mapping_${randomUUID()}`,
-        platform: data.platform,
-        accountName: data.accountName,
-        sourceAccountId: data.sourceAccountId,
-        ingestionMethod: data.ingestionMethod,
-        fallbackMethod: data.fallbackMethod ?? null,
-        isActive: true
-      }),
+      serializeMapping(
+        createDemoMapping(clientId, {
+          platform: data.platform,
+          accountName: data.accountName,
+          sourceAccountId: data.sourceAccountId,
+          ingestionMethod: data.ingestionMethod,
+          fallbackMethod: data.fallbackMethod ?? null,
+          config: Object.fromEntries(
+            Object.entries(data.config).map(([key, value]) => [
+              key,
+              String(value)
+            ])
+          )
+        })
+      ),
       { status: 201 }
     );
   }

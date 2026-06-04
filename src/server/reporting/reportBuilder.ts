@@ -9,6 +9,7 @@ import { db } from "@/server/db/client";
 import { detectAnomalies, type AnomalyResult } from "./anomalies";
 import { calculateBudgetPacing } from "./budgetPacing";
 import { scoreDataQuality } from "./dataQuality";
+import { generateRuleBasedInsights } from "./insights";
 import {
   calculateDerivedMetrics,
   resolveSelectedRevenue,
@@ -50,6 +51,11 @@ type BudgetForPacing = {
   monthlyBudget: number;
 };
 
+type GoalForInsights = {
+  goalType: string;
+  targetValue: number;
+};
+
 export type ReportDraftSnapshot = {
   status: "needs_review";
   clientId: string;
@@ -81,23 +87,33 @@ export function buildReportDraftSnapshot(input: {
   metricRows: ReportDraftMetricRow[];
   accountMappingsLoaded?: number;
   goalsLoaded?: number;
+  goals?: GoalForInsights[];
   budgets?: BudgetForPacing[];
 }): ReportDraftSnapshot {
   const adRows = input.metricRows.filter((row) =>
     getAdPlatforms(input.request.adSource).includes(row.platform)
   );
   const adTotals = sumMetricTotals(adRows);
+  const shopifyRevenue = sumMetric(input.metricRows, "shopify", "revenue");
+  const ga4Revenue = sumMetric(input.metricRows, "ga4", "revenue");
+  const googleAdsConversionValue = sumMetric(
+    input.metricRows,
+    "google_ads",
+    "conversion_value"
+  );
+  const metaPurchaseValue = sumMetric(
+    input.metricRows,
+    "meta_ads",
+    "conversion_value"
+  );
+  const manualRevenue = sumMetric(input.metricRows, "manual", "revenue");
   const selectedRevenue = resolveSelectedRevenue({
     revenueSource: input.request.revenueSource,
-    shopifyRevenue: sumMetric(input.metricRows, "shopify", "revenue"),
-    ga4Revenue: sumMetric(input.metricRows, "ga4", "revenue"),
-    googleAdsConversionValue: sumMetric(
-      input.metricRows,
-      "google_ads",
-      "conversion_value"
-    ),
-    metaPurchaseValue: sumMetric(input.metricRows, "meta_ads", "conversion_value"),
-    manualRevenue: sumMetric(input.metricRows, "manual", "revenue")
+    shopifyRevenue,
+    ga4Revenue,
+    googleAdsConversionValue,
+    metaPurchaseValue,
+    manualRevenue
   });
   const totalMarketingSpend = sumMetric(input.metricRows, "google_ads", "spend")
     + sumMetric(input.metricRows, "meta_ads", "spend");
@@ -145,10 +161,23 @@ export function buildReportDraftSnapshot(input: {
         daysInMonth: getDaysInMonth(input.request.dateRange.to)
       })
     : null;
-  const insights = buildInsights({
-    selectedRevenue,
-    spend: adTotals.spend,
-    derivedMetrics
+  const insights = generateRuleBasedInsights({
+    metrics: {
+      spend: adTotals.spend,
+      revenue: selectedRevenue,
+      roas: derivedMetrics.roas,
+      ctr: derivedMetrics.ctr,
+      conversionRate: derivedMetrics.conversionRate,
+      cpl: derivedMetrics.cpl,
+      shopifyRevenue,
+      platformConversionValue: googleAdsConversionValue + metaPurchaseValue
+    },
+    goals: buildGoalMap(input.goals ?? []),
+    anomalies: anomalies.map((anomaly) => ({
+      anomalyType: anomaly.anomalyType,
+      message: anomaly.message,
+      clientSafe: anomaly.clientSafe
+    }))
   });
 
   return {
@@ -227,6 +256,10 @@ export async function buildReportDraft(request: ReportBuildRequest) {
     })),
     accountMappingsLoaded: client.accountMappings.length,
     goalsLoaded: client.goals.length,
+    goals: client.goals.map((goal) => ({
+      goalType: goal.goalType,
+      targetValue: Number(goal.targetValue)
+    })),
     budgets: client.budgets.map((budget) => ({
       monthlyBudget: Number(budget.monthlyBudget)
     }))
@@ -347,26 +380,18 @@ function getDaysInMonth(date: string) {
   ).getUTCDate();
 }
 
-function buildInsights(input: {
-  selectedRevenue: number;
-  spend: number;
-  derivedMetrics: DerivedMetrics;
-}): ReportInsightDraft[] {
-  const roasText =
-    input.derivedMetrics.roas === null
-      ? "ROAS is unavailable because spend is zero."
-      : `ROAS is ${input.derivedMetrics.roas.toFixed(2)} from selected revenue.`;
+function buildGoalMap(goals: GoalForInsights[]) {
+  return goals.reduce<Record<string, number>>((map, goal) => {
+    map[goal.goalType] = goal.targetValue;
 
-  return [
-    {
-      insightType: "performance_summary",
-      text: roasText,
-      sourceMetric: "roas"
-    },
-    {
-      insightType: "revenue_summary",
-      text: `Selected revenue is ${input.selectedRevenue} against ${input.spend} in ad spend.`,
-      sourceMetric: "revenue"
+    if (
+      goal.goalType === "cpl" ||
+      goal.goalType === "target_cpl" ||
+      goal.goalType === "cplTarget"
+    ) {
+      map.cplTarget = goal.targetValue;
     }
-  ];
+
+    return map;
+  }, {});
 }
