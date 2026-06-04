@@ -1,0 +1,286 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  google_ads
+  meta_ads
+  ga4
+  shopify
+  manual
+}
+
+enum IngestionMethod {
+  direct_api
+  platform_script
+  google_sheets
+  bigquery
+  csv_upload
+  third_party_connector
+}
+
+enum ConnectorHealthStatus {
+  healthy
+  warning
+  failed
+  not_connected
+  needs_authorization
+  stale_data
+}
+
+enum ReportStatus {
+  draft
+  data_ready
+  needs_review
+  approved
+  sent
+  failed
+  rejected
+}
+
+enum ReportType {
+  weekly
+  monthly
+}
+
+enum Severity {
+  info
+  warning
+  critical
+}
+
+model User {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  name          String
+  role          String
+  createdAt     DateTime        @default(now())
+  approvals     ApprovalEvent[]
+  generatedRuns Report[]
+}
+
+model Client {
+  id              String           @id @default(cuid())
+  name            String
+  clientType      String
+  primaryEmail    String
+  whatsappNumber  String?
+  currency        String           @default("INR")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  accountMappings AccountMapping[]
+  goals           ClientGoal[]
+  budgets         ClientBudget[]
+  syncRuns        SyncRun[]
+  metricRows      MetricRow[]
+  reports         Report[]
+}
+
+model AccountMapping {
+  id              String           @id @default(cuid())
+  clientId        String
+  platform        Platform
+  accountName     String
+  sourceAccountId String
+  ingestionMethod IngestionMethod
+  config          Json
+  fallbackMethod  IngestionMethod?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  client          Client           @relation(fields: [clientId], references: [id])
+  connectors      Connector[]
+  syncRuns        SyncRun[]
+}
+
+model Connector {
+  id                 String                @id @default(cuid())
+  accountMappingId   String
+  connectorType      String
+  healthStatus       ConnectorHealthStatus @default(not_connected)
+  lastSuccessfulSync DateTime?
+  lastFailedSync     DateTime?
+  latestError        String?
+  rowsImported       Int                   @default(0)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  accountMapping     AccountMapping        @relation(fields: [accountMappingId], references: [id])
+}
+
+model SyncRun {
+  id               String         @id @default(cuid())
+  clientId         String
+  accountMappingId String
+  platform         Platform
+  ingestionMethod  IngestionMethod
+  dateFrom         DateTime
+  dateTo           DateTime
+  status           String
+  rowsImported     Int            @default(0)
+  errorMessage     String?
+  startedAt        DateTime       @default(now())
+  finishedAt       DateTime?
+  client           Client         @relation(fields: [clientId], references: [id])
+  accountMapping   AccountMapping @relation(fields: [accountMappingId], references: [id])
+  rawRows          RawSourceRow[]
+  metricRows       MetricRow[]
+}
+
+model RawSourceRow {
+  id              String   @id @default(cuid())
+  syncRunId       String
+  sourceReference String
+  sourcePayload   Json
+  importedAt      DateTime @default(now())
+  syncRun         SyncRun  @relation(fields: [syncRunId], references: [id])
+}
+
+model MetricRow {
+  id                String          @id @default(cuid())
+  clientId          String
+  syncRunId         String
+  platform          Platform
+  ingestionMethod   IngestionMethod
+  sourceAccountId   String
+  metricName        String
+  metricValue       Decimal
+  currency          String?
+  occurredOn        DateTime
+  dimensions        Json
+  originalFieldName String
+  sourceReference   String
+  importedAt        DateTime        @default(now())
+  client            Client          @relation(fields: [clientId], references: [id])
+  syncRun           SyncRun         @relation(fields: [syncRunId], references: [id])
+}
+
+model ClientGoal {
+  id          String    @id @default(cuid())
+  clientId    String
+  platform    Platform?
+  goalType    String
+  targetValue Decimal
+  createdAt   DateTime  @default(now())
+  client      Client    @relation(fields: [clientId], references: [id])
+}
+
+model ClientBudget {
+  id            String    @id @default(cuid())
+  clientId      String
+  platform      Platform?
+  monthlyBudget Decimal
+  weeklyBudget  Decimal?
+  startsOn      DateTime
+  endsOn        DateTime?
+  client        Client    @relation(fields: [clientId], references: [id])
+}
+
+model Report {
+  id                String          @id @default(cuid())
+  clientId          String
+  reportType        ReportType
+  dateFrom          DateTime
+  dateTo            DateTime
+  adSource          String
+  revenueSource     String
+  status            ReportStatus    @default(draft)
+  generatedByUserId String
+  approvedAt        DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  client            Client          @relation(fields: [clientId], references: [id])
+  generatedBy       User            @relation(fields: [generatedByUserId], references: [id])
+  versions          ReportVersion[]
+  approvals         ApprovalEvent[]
+  deliveries        DeliveryLog[]
+  emailDrafts       EmailDraft[]
+}
+
+model ReportVersion {
+  id              String             @id @default(cuid())
+  reportId        String
+  versionNumber   Int
+  metricsSnapshot Json
+  sourceTrace     Json
+  pdfPath         String?
+  htmlSnapshot    String?
+  createdAt       DateTime           @default(now())
+  report          Report             @relation(fields: [reportId], references: [id])
+  insights        Insight[]
+  anomalies       Anomaly[]
+  qualityScores   DataQualityScore[]
+}
+
+model Insight {
+  id              String        @id @default(cuid())
+  reportVersionId String
+  insightType     String
+  text            String
+  sourceMetric    String
+  isEdited        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  reportVersion   ReportVersion @relation(fields: [reportVersionId], references: [id])
+}
+
+model Anomaly {
+  id              String        @id @default(cuid())
+  reportVersionId String
+  anomalyType     String
+  severity        Severity
+  message         String
+  clientSafe      Boolean       @default(false)
+  dismissedAt     DateTime?
+  comment         String?
+  reportVersion   ReportVersion @relation(fields: [reportVersionId], references: [id])
+}
+
+model DataQualityScore {
+  id              String        @id @default(cuid())
+  reportVersionId String
+  score           Int
+  rating          String
+  factors         Json
+  createdAt       DateTime      @default(now())
+  reportVersion   ReportVersion @relation(fields: [reportVersionId], references: [id])
+}
+
+model ApprovalEvent {
+  id        String   @id @default(cuid())
+  reportId  String
+  userId    String
+  action    String
+  version   Int
+  comment   String?
+  createdAt DateTime @default(now())
+  report    Report   @relation(fields: [reportId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model DeliveryLog {
+  id           String   @id @default(cuid())
+  reportId     String
+  method       String
+  recipient    String
+  status       String
+  providerId   String?
+  errorMessage String?
+  sentAt       DateTime?
+  createdAt    DateTime @default(now())
+  report       Report   @relation(fields: [reportId], references: [id])
+}
+
+model EmailDraft {
+  id        String   @id @default(cuid())
+  reportId  String
+  subject   String
+  body      String
+  isEdited  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  report    Report   @relation(fields: [reportId], references: [id])
+}
