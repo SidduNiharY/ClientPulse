@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useHydrated } from "./useHydrated";
 
 type ClientOption = {
   id: string;
@@ -29,6 +30,7 @@ export function ImportForm() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isHydrated = useHydrated();
   const selectedClient = clients.find((client) => client.id === clientId);
   const selectedMapping = useMemo(
     () => mappings.find((mapping) => mapping.platform === platform),
@@ -235,7 +237,7 @@ export function ImportForm() {
       <div className="lg:col-span-2">
         <button
           className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSubmitting || !clientId}
+          disabled={!isHydrated || isSubmitting || !clientId}
           type="submit"
         >
           {isSubmitting ? "Importing..." : "Run import"}

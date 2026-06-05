@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
+import { useHydrated } from "./useHydrated";
 
 export type ClientListItem = {
   id: string;
@@ -30,6 +31,7 @@ export function ClientForm({
   const [clients, setClients] = useState<ClientListItem[]>(initialClients);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isHydrated = useHydrated();
   const sortedClients = useMemo(() => clients, [clients]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -144,7 +146,7 @@ export function ClientForm({
 
         <button
           className="w-full rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSubmitting}
+          disabled={!isHydrated || isSubmitting}
           type="submit"
         >
           {isSubmitting ? "Creating..." : "Create client"}

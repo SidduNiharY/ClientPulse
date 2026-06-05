@@ -6,13 +6,16 @@ import { z } from "zod";
 import { db } from "@/server/db/client";
 import { buildClientSummaryEmail } from "@/server/delivery/emailDraft";
 import { sendReportEmail } from "@/server/delivery/email";
+import { sendReportWhatsApp } from "@/server/delivery/whatsapp";
 import { sendDemoReport } from "@/server/demo/memoryStore";
 import { renderReportHtml } from "@/server/pdf/reportTemplate";
 import { renderPdfFromHtml } from "@/server/pdf/renderPdf";
 import type { ReportDraftSnapshot } from "@/server/reporting/reportBuilder";
 
 const sendSchema = z.object({
-  to: z.array(z.string().email()).optional()
+  method: z.enum(["email", "whatsapp"]).default("email"),
+  to: z.array(z.string().email()).optional(),
+  whatsappTo: z.string().min(1).optional()
 });
 
 export async function POST(
@@ -55,7 +58,7 @@ export async function POST(
       }
     });
   } catch {
-    const result = sendDemoReport(reportId);
+    const result = sendDemoReport(reportId, parsed.data.method);
 
     return NextResponse.json(result.body, { status: result.status });
   }
@@ -76,7 +79,18 @@ export async function POST(
   const recipients = parsed.data.to?.length
     ? parsed.data.to
     : [report.client.primaryEmail];
-  const recipientLabel = recipients.join(",");
+  const whatsappRecipient =
+    parsed.data.whatsappTo ?? report.client.whatsappNumber ?? undefined;
+
+  if (parsed.data.method === "whatsapp" && !whatsappRecipient) {
+    return NextResponse.json(
+      { error: "Client does not have a WhatsApp recipient configured" },
+      { status: 400 }
+    );
+  }
+
+  const recipientLabel =
+    parsed.data.method === "email" ? recipients.join(",") : whatsappRecipient;
 
   try {
     const snapshot = version.metricsSnapshot as unknown as ReportDraftSnapshot;
@@ -96,20 +110,29 @@ export async function POST(
         recommendedSteps: [],
         agencySignature: "Regards,\nAgency Team"
       });
-    const result = await sendReportEmail({
-      to: recipients,
-      subject: email.subject,
-      body: email.body,
-      pdfBuffer: pdf,
-      filename: `${report.id}.pdf`
-    });
+    const filename = `${report.id}.pdf`;
+    const result =
+      parsed.data.method === "email"
+        ? await sendReportEmail({
+            to: recipients,
+            subject: email.subject,
+            body: email.body,
+            pdfBuffer: pdf,
+            filename
+          })
+        : await sendReportWhatsApp({
+            to: whatsappRecipient ?? "",
+            message: email.body,
+            pdfBuffer: pdf,
+            filename
+          });
 
     await db.$transaction([
       db.deliveryLog.create({
         data: {
           reportId,
-          method: "email",
-          recipient: recipientLabel,
+          method: parsed.data.method,
+          recipient: recipientLabel ?? "",
           status: "sent",
           providerId: result.providerId,
           sentAt: new Date()
@@ -127,6 +150,7 @@ export async function POST(
     return NextResponse.json({
       id: reportId,
       status: "sent",
+      method: parsed.data.method,
       providerId: result.providerId
     });
   } catch (error) {
@@ -136,8 +160,8 @@ export async function POST(
       db.deliveryLog.create({
         data: {
           reportId,
-          method: "email",
-          recipient: recipientLabel,
+          method: parsed.data.method,
+          recipient: recipientLabel ?? "",
           status: "failed",
           errorMessage: message
         }

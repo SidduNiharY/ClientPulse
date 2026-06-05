@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useHydrated } from "./useHydrated";
 
 function formatStatus(status: string) {
   return status
@@ -19,7 +20,9 @@ export function ReportActions({
   const [status, setStatus] = useState(initialStatus);
   const [error, setError] = useState<string | null>(null);
   const [isApproving, setIsApproving] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+  const isHydrated = useHydrated();
 
   async function approveReport() {
     setError(null);
@@ -55,15 +58,20 @@ export function ReportActions({
     }
   }
 
-  async function sendEmail() {
+  async function sendReport(method: "email" | "whatsapp") {
     setError(null);
-    setIsSending(true);
+
+    if (method === "email") {
+      setIsSendingEmail(true);
+    } else {
+      setIsSendingWhatsApp(true);
+    }
 
     try {
       const response = await fetch(`/api/reports/${reportId}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({})
+        body: JSON.stringify({ method })
       });
       const result = (await response.json()) as {
         status?: string;
@@ -80,7 +88,11 @@ export function ReportActions({
         sendError instanceof Error ? sendError.message : "Could not send report"
       );
     } finally {
-      setIsSending(false);
+      if (method === "email") {
+        setIsSendingEmail(false);
+      } else {
+        setIsSendingWhatsApp(false);
+      }
     }
   }
 
@@ -96,7 +108,12 @@ export function ReportActions({
       <div className="flex flex-wrap gap-3">
         <button
           className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isApproving || status === "approved" || status === "sent"}
+          disabled={
+            !isHydrated ||
+            isApproving ||
+            status === "approved" ||
+            status === "sent"
+          }
           onClick={approveReport}
           type="button"
         >
@@ -104,11 +121,19 @@ export function ReportActions({
         </button>
         <button
           className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-semibold transition hover:bg-[#eef4f1] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSending || status !== "approved"}
-          onClick={sendEmail}
+          disabled={!isHydrated || isSendingEmail || status !== "approved"}
+          onClick={() => sendReport("email")}
           type="button"
         >
-          {isSending ? "Sending..." : "Send email"}
+          {isSendingEmail ? "Sending..." : "Send email"}
+        </button>
+        <button
+          className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-semibold transition hover:bg-[#eef4f1] disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={!isHydrated || isSendingWhatsApp || status !== "approved"}
+          onClick={() => sendReport("whatsapp")}
+          type="button"
+        >
+          {isSendingWhatsApp ? "Sending..." : "Send WhatsApp"}
         </button>
       </div>
     </div>

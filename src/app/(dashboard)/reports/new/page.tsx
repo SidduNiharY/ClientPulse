@@ -6,6 +6,7 @@ import {
   getMonthlyRange,
   getWeeklyRange
 } from "@/server/reporting/dateRanges";
+import { useHydrated } from "@/components/useHydrated";
 
 type ClientOption = {
   id: string;
@@ -17,6 +18,7 @@ export default function NewReportPage() {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isHydrated = useHydrated();
 
   useEffect(() => {
     fetch("/api/clients")
@@ -182,7 +184,7 @@ export default function NewReportPage() {
 
           <button
             className="w-full rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSubmitting}
+            disabled={!isHydrated || isSubmitting}
             type="submit"
           >
             {isSubmitting ? "Generating..." : "Generate draft"}

@@ -7,6 +7,7 @@ const clientSeed = {
   name: "Demo Ecommerce Client",
   clientType: "ecommerce",
   primaryEmail: "client@example.com",
+  whatsappNumber: "+919999999999",
   currency: "INR"
 };
 
@@ -74,6 +75,7 @@ async function main() {
       name: clientSeed.name,
       clientType: clientSeed.clientType,
       primaryEmail: clientSeed.primaryEmail,
+      whatsappNumber: clientSeed.whatsappNumber,
       currency: clientSeed.currency,
       accountMappings: {
         create: accountMappings.map((mapping) => ({
@@ -131,6 +133,7 @@ async function main() {
       name: clientSeed.name,
       clientType: clientSeed.clientType,
       primaryEmail: clientSeed.primaryEmail,
+      whatsappNumber: clientSeed.whatsappNumber,
       currency: clientSeed.currency,
       accountMappings: {
         create: accountMappings.map((mapping) => ({

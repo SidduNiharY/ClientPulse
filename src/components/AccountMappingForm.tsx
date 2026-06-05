@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useHydrated } from "./useHydrated";
 
 export type AccountMappingItem = {
   id: string;
@@ -41,6 +42,7 @@ export function AccountMappingForm({
     useState<AccountMappingItem[]>(initialMappings);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isHydrated = useHydrated();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -196,7 +198,7 @@ export function AccountMappingForm({
 
         <button
           className="w-full rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSubmitting}
+          disabled={!isHydrated || isSubmitting}
           type="submit"
         >
           {isSubmitting ? "Adding..." : "Add mapping"}

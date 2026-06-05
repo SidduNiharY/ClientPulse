@@ -525,7 +525,7 @@ export function approveDemoReport(reportId: string) {
   };
 }
 
-export function sendDemoReport(reportId: string) {
+export function sendDemoReport(reportId: string, method = "email") {
   const demoStore = store();
   const report = demoStore.reports.find((item) => item.id === reportId);
 
@@ -550,7 +550,9 @@ export function sendDemoReport(reportId: string) {
     body: {
       id: report.id,
       status: report.status,
-      providerId: "demo_email_provider"
+      method,
+      providerId:
+        method === "whatsapp" ? "demo_whatsapp_provider" : "demo_email_provider"
     }
   };
 }

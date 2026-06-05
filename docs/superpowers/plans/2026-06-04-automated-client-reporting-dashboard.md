@@ -26,16 +26,16 @@ Last updated: 2026-06-05.
 - [x] Task 12: AI-Assisted Insights
 - [x] Task 13: MVP End-To-End Report Scenario
 - [x] Task 14: Phase 2 Direct API Connectors
-- [ ] Task 15: Phase 3 And Phase 4 Expansion
+- [x] Task 15: Phase 3 And Phase 4 Expansion
 
 Current verification evidence:
 
 - `npm run lint`: passed.
-- `npm test`: 13 files, 28 tests passed.
+- `npm test`: 17 files, 34 tests passed.
 - `npm run test:e2e`: 2 tests passed.
-- `npm run build`: passed with 8 generated app pages and dynamic API routes.
+- `npm run build`: passed with `/portfolio`, 8 generated static pages, and dynamic API routes.
 
-Remaining architecture work is Task 15: WhatsApp delivery, portfolio dashboard, profit reporting, forecasting, and opportunity detection.
+Remaining architecture work from this plan is complete: WhatsApp delivery, portfolio dashboard, profit reporting, forecasting, and opportunity detection are implemented.
 
 ---
 
@@ -2207,7 +2207,7 @@ git commit -m "feat: add direct connector contract support"
 - Test: `tests/unit/profit.test.ts`
 - Test: `tests/unit/forecasting.test.ts`
 
-- [ ] **Step 1: Add WhatsApp delivery adapter**
+- [x] **Step 1: Add WhatsApp delivery adapter**
 
 Implement adapter boundary:
 
@@ -2224,7 +2224,7 @@ export interface WhatsAppProvider {
 
 Delivery logs must use method `whatsapp`.
 
-- [ ] **Step 2: Add portfolio dashboard**
+- [x] **Step 2: Add portfolio dashboard**
 
 `/portfolio` must show:
 
@@ -2242,7 +2242,7 @@ Delivery logs must use method `whatsapp`.
 - Biggest spend spike.
 - Clients with broken data.
 
-- [ ] **Step 3: Add profit reporting module**
+- [x] **Step 3: Add profit reporting module**
 
 Create `src/server/reporting/profit.ts`:
 
@@ -2272,11 +2272,11 @@ export function calculateProfitMetrics(input: {
 }
 ```
 
-- [ ] **Step 4: Add forecasting module**
+- [x] **Step 4: Add forecasting module**
 
 Create `src/server/reporting/forecasting.ts` with linear run-rate forecast for spend, revenue, leads, CPL, and budget usage.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
