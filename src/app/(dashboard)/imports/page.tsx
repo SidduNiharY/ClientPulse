@@ -62,7 +62,7 @@ export default async function ImportsPage() {
 
       <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
         <table className="w-full border-collapse text-left text-sm">
-          <thead className="border-b border-[var(--border)] bg-[#eef4f1] text-[var(--muted)]">
+          <thead className="border-b border-[var(--border)] bg-[var(--subtle)] text-[var(--muted)]">
             <tr>
               <th className="px-4 py-3 font-semibold">Client</th>
               <th className="px-4 py-3 font-semibold">Platform</th>

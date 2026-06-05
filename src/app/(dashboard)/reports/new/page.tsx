@@ -97,7 +97,7 @@ export default function NewReportPage() {
               Client
             </label>
             <select
-              className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
               id="clientId"
               name="clientId"
               required
@@ -116,7 +116,7 @@ export default function NewReportPage() {
               Report type
             </label>
             <select
-              className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
               defaultValue="weekly"
               id="reportType"
               name="reportType"
@@ -131,7 +131,7 @@ export default function NewReportPage() {
               Report date
             </label>
             <input
-              className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
               defaultValue="2026-06-04"
               id="selectedDate"
               name="selectedDate"
@@ -145,7 +145,7 @@ export default function NewReportPage() {
               Ad source
             </label>
             <select
-              className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
               defaultValue="google_ads_meta_ads"
               id="adSource"
               name="adSource"
@@ -163,7 +163,7 @@ export default function NewReportPage() {
               Revenue source
             </label>
             <select
-              className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
               defaultValue="shopify"
               id="revenueSource"
               name="revenueSource"
@@ -180,10 +180,10 @@ export default function NewReportPage() {
 
           <input name="generatedByUserId" type="hidden" value="demo_user" />
 
-          {error ? <p className="text-sm text-red-700">{error}</p> : null}
+          {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
 
           <button
-            className="w-full rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={!isHydrated || isSubmitting}
             type="submit"
           >

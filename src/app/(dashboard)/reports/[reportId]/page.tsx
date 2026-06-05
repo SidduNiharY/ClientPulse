@@ -189,7 +189,7 @@ export default async function ReportPreviewPage({
 
       <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-lg font-semibold tracking-normal">Budget pacing</h2>
-        <pre className="mt-4 overflow-auto rounded-md bg-[#f6f8f7] p-4 text-sm">
+        <pre className="mt-4 overflow-auto rounded-md bg-[var(--code)] p-4 text-sm">
           {JSON.stringify(snapshot?.budgetPacing ?? {}, null, 2)}
         </pre>
       </section>
@@ -198,7 +198,7 @@ export default async function ReportPreviewPage({
         <h2 className="text-lg font-semibold tracking-normal">
           Source trace details
         </h2>
-        <pre className="mt-4 overflow-auto rounded-md bg-[#f6f8f7] p-4 text-sm">
+        <pre className="mt-4 overflow-auto rounded-md bg-[var(--code)] p-4 text-sm">
           {JSON.stringify(snapshot?.sourceTrace ?? [], null, 2)}
         </pre>
       </section>

@@ -14,6 +14,7 @@ export class GA4ApiConnector implements Connector {
     const hasOAuth =
       input.config.propertyId &&
       input.config.oauthClientId &&
+      input.config.oauthClientSecret &&
       input.config.refreshToken;
     const hasServiceAccount =
       input.config.propertyId &&

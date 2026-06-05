@@ -109,7 +109,7 @@ export default async function HealthPage() {
 
       <div className="overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]">
         <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
-          <thead className="border-b border-[var(--border)] bg-[#eef4f1] text-[var(--muted)]">
+          <thead className="border-b border-[var(--border)] bg-[var(--subtle)] text-[var(--muted)]">
             <tr>
               <th className="px-4 py-3 font-semibold">Client name</th>
               <th className="px-4 py-3 font-semibold">Platform</th>

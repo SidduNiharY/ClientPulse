@@ -269,7 +269,7 @@ export default async function PortfolioPage() {
           </h1>
         </div>
         <Link
-          className="w-fit rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold transition hover:bg-[#eef4f1]"
+          className="w-fit rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold transition hover:bg-[var(--hover)]"
           href="/approvals"
         >
           Review approvals
@@ -337,7 +337,7 @@ export default async function PortfolioPage() {
       </div>
 
       <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--border)] bg-[#eef4f1] px-4 py-3">
+        <div className="border-b border-[var(--border)] bg-[var(--subtle)] px-4 py-3">
           <h2 className="text-lg font-semibold tracking-normal">
             Opportunity detection
           </h2>

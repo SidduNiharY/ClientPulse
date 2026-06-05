@@ -103,11 +103,11 @@ export function ReportActions({
         <p className="mt-1 text-lg font-semibold">{formatStatus(status)}</p>
       </div>
 
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
 
       <div className="flex flex-wrap gap-3">
         <button
-          className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
           disabled={
             !isHydrated ||
             isApproving ||
@@ -120,7 +120,7 @@ export function ReportActions({
           {isApproving ? "Approving..." : "Approve"}
         </button>
         <button
-          className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-semibold transition hover:bg-[#eef4f1] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--subtle)] disabled:cursor-not-allowed disabled:opacity-60"
           disabled={!isHydrated || isSendingEmail || status !== "approved"}
           onClick={() => sendReport("email")}
           type="button"
@@ -128,7 +128,7 @@ export function ReportActions({
           {isSendingEmail ? "Sending..." : "Send email"}
         </button>
         <button
-          className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-semibold transition hover:bg-[#eef4f1] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--subtle)] disabled:cursor-not-allowed disabled:opacity-60"
           disabled={!isHydrated || isSendingWhatsApp || status !== "approved"}
           onClick={() => sendReport("whatsapp")}
           type="button"

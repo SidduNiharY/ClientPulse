@@ -1,4 +1,8 @@
 import Link from "next/link";
+import {
+  ConnectionCredentialForm,
+  type DirectMappingOption
+} from "@/components/ConnectionCredentialForm";
 import { db } from "@/server/db/client";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +12,8 @@ type ConnectionRow = {
   label: string;
   description: string;
   status: string;
+  accountMappingId: string | null;
+  sourceAccountId: string | null;
   accountName: string;
   lastDirectSync: Date | null;
   latestError: string | null;
@@ -36,9 +42,12 @@ const providerMetadata = [
   }
 ];
 
-async function getConnectionRows(): Promise<ConnectionRow[]> {
+async function getConnectionData(): Promise<{
+  rows: ConnectionRow[];
+  mappings: DirectMappingOption[];
+}> {
   try {
-    const [credentials, mappings] = await Promise.all([
+    const [credentials, mappings, allMappings] = await Promise.all([
       db.directCredential.findMany({
         orderBy: { updatedAt: "desc" }
       }),
@@ -51,10 +60,20 @@ async function getConnectionRows(): Promise<ConnectionRow[]> {
             take: 1
           }
         }
+      }),
+      db.accountMapping.findMany({
+        include: {
+          client: {
+            select: {
+              name: true
+            }
+          }
+        },
+        orderBy: { createdAt: "desc" }
       })
     ]);
 
-    return providerMetadata.map((provider) => {
+    const rows = providerMetadata.map((provider) => {
       const credential = credentials.find(
         (item) => item.provider === provider.provider
       );
@@ -71,21 +90,43 @@ async function getConnectionRows(): Promise<ConnectionRow[]> {
           credential?.status ??
           connector?.healthStatus ??
           "needs_authorization",
+        accountMappingId: mapping?.id ?? null,
+        sourceAccountId: mapping?.sourceAccountId ?? null,
         accountName: mapping?.accountName ?? "No direct account mapped",
         lastDirectSync: connector?.lastSuccessfulSync ?? null,
         latestError: connector?.latestError ?? null
       };
     });
+
+    return {
+      rows,
+      mappings: allMappings
+        .filter((mapping) =>
+          providerMetadata.some(
+            (provider) => provider.provider === mapping.platform
+          )
+        )
+        .map((mapping) => ({
+          id: mapping.id,
+          provider: mapping.platform as DirectMappingOption["provider"],
+          label: `${mapping.client.name} / ${mapping.accountName}`
+        }))
+    };
   } catch {
-    return providerMetadata.map((provider) => ({
-      provider: provider.provider,
-      label: provider.label,
-      description: provider.description,
-      status: "needs_authorization",
-      accountName: "No direct account mapped",
-      lastDirectSync: null,
-      latestError: null
-    }));
+    return {
+      rows: providerMetadata.map((provider) => ({
+        provider: provider.provider,
+        label: provider.label,
+        description: provider.description,
+        status: "needs_authorization",
+        accountMappingId: null,
+        sourceAccountId: null,
+        accountName: "No direct account mapped",
+        lastDirectSync: null,
+        latestError: null
+      })),
+      mappings: []
+    };
   }
 }
 
@@ -107,7 +148,7 @@ function formatStatus(status: string) {
 }
 
 export default async function ConnectionsPage() {
-  const rows = await getConnectionRows();
+  const { rows, mappings } = await getConnectionData();
 
   return (
     <section className="space-y-8">
@@ -133,12 +174,21 @@ export default async function ConnectionsPage() {
                   {row.description}
                 </p>
               </div>
-              <Link
-                className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f]"
-                href={`/api/connections/oauth?provider=${row.provider}`}
-              >
-                Reconnect
-              </Link>
+              {row.accountMappingId ? (
+                <Link
+                  className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)]"
+                  href={buildOAuthHref(row)}
+                >
+                  Reconnect
+                </Link>
+              ) : (
+                <Link
+                  className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold transition hover:bg-[var(--hover)]"
+                  href="/clients"
+                >
+                  Map account
+                </Link>
+              )}
             </div>
 
             <dl className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -172,6 +222,21 @@ export default async function ConnectionsPage() {
           </section>
         ))}
       </div>
+
+      <ConnectionCredentialForm mappings={mappings} />
     </section>
   );
+}
+
+function buildOAuthHref(row: ConnectionRow) {
+  const params = new URLSearchParams({
+    provider: row.provider,
+    accountMappingId: row.accountMappingId ?? ""
+  });
+
+  if (row.provider === "shopify" && row.sourceAccountId) {
+    params.set("shopDomain", row.sourceAccountId);
+  }
+
+  return `/api/connections/oauth?${params.toString()}`;
 }

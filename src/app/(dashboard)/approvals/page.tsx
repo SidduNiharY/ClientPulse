@@ -102,7 +102,7 @@ export default async function ApprovalsPage() {
           className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]"
           key={status}
         >
-          <div className="border-b border-[var(--border)] bg-[#eef4f1] px-4 py-3">
+          <div className="border-b border-[var(--border)] bg-[var(--subtle)] px-4 py-3">
             <h2 className="text-lg font-semibold tracking-normal">
               {status.replaceAll("_", " ")}
             </h2>

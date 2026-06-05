@@ -142,7 +142,7 @@ export function ImportForm() {
           Client
         </label>
         <select
-          className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
           id="importClient"
           onChange={(event) => {
             setClientId(event.target.value);
@@ -165,7 +165,7 @@ export function ImportForm() {
           Platform
         </label>
         <select
-          className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
           id="importPlatform"
           onChange={(event) => setPlatform(event.target.value)}
           value={platform}
@@ -183,7 +183,7 @@ export function ImportForm() {
           Date from
         </label>
         <input
-          className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
           defaultValue="2026-06-01"
           id="dateFrom"
           name="dateFrom"
@@ -197,7 +197,7 @@ export function ImportForm() {
           Date to
         </label>
         <input
-          className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
           defaultValue="2026-06-07"
           id="dateTo"
           name="dateTo"
@@ -212,7 +212,7 @@ export function ImportForm() {
         </label>
         <input
           accept=".csv,text/csv"
-          className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
           id="csvFile"
           name="csvFile"
           required
@@ -231,12 +231,12 @@ export function ImportForm() {
         </p>
       ) : null}
       {error ? (
-        <p className="text-sm text-red-700 lg:col-span-2">{error}</p>
+        <p className="text-sm text-[var(--danger)] lg:col-span-2">{error}</p>
       ) : null}
 
       <div className="lg:col-span-2">
         <button
-          className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
           disabled={!isHydrated || isSubmitting || !clientId}
           type="submit"
         >

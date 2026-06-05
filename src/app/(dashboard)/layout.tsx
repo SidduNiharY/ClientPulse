@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navigation = [
   { href: "/", label: "Overview" },
@@ -22,17 +23,20 @@ export default function DashboardLayout({
           <Link className="text-lg font-semibold tracking-normal" href="/">
             Reports Generator
           </Link>
-          <nav aria-label="Main navigation" className="flex flex-wrap gap-2">
-            {navigation.map((item) => (
-              <Link
-                className="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] transition hover:bg-[#eef4f1] hover:text-[var(--foreground)]"
-                href={item.href}
-                key={item.href}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <div className="flex flex-wrap items-center gap-2">
+            <nav aria-label="Main navigation" className="flex flex-wrap gap-2">
+              {navigation.map((item) => (
+                <Link
+                  className="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--subtle)] hover:text-[var(--foreground)]"
+                  href={item.href}
+                  key={item.href}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-7xl px-6 py-8">{children}</main>

@@ -106,7 +106,7 @@ export function AccountMappingForm({
             Platform
           </label>
           <select
-            className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             id="platform"
             name="platform"
           >
@@ -123,7 +123,7 @@ export function AccountMappingForm({
             Account name
           </label>
           <input
-            className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             id="accountName"
             name="accountName"
             required
@@ -136,7 +136,7 @@ export function AccountMappingForm({
             Source account ID
           </label>
           <input
-            className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             id="sourceAccountId"
             name="sourceAccountId"
             required
@@ -149,7 +149,7 @@ export function AccountMappingForm({
             Ingestion method
           </label>
           <select
-            className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             defaultValue="csv_upload"
             id="ingestionMethod"
             name="ingestionMethod"
@@ -167,7 +167,7 @@ export function AccountMappingForm({
             Fallback method
           </label>
           <select
-            className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             defaultValue="csv_upload"
             id="fallbackMethod"
             name="fallbackMethod"
@@ -185,7 +185,7 @@ export function AccountMappingForm({
             Date field
           </label>
           <input
-            className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             defaultValue="Date"
             id="dateField"
             name="dateField"
@@ -194,10 +194,10 @@ export function AccountMappingForm({
           />
         </div>
 
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
+        {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
 
         <button
-          className="w-full rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#066b5f] disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
           disabled={!isHydrated || isSubmitting}
           type="submit"
         >
@@ -207,7 +207,7 @@ export function AccountMappingForm({
 
       <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
         <table className="w-full border-collapse text-left text-sm">
-          <thead className="border-b border-[var(--border)] bg-[#eef4f1] text-[var(--muted)]">
+          <thead className="border-b border-[var(--border)] bg-[var(--subtle)] text-[var(--muted)]">
             <tr>
               <th className="px-4 py-3 font-semibold">Platform</th>
               <th className="px-4 py-3 font-semibold">Account</th>

@@ -9,6 +9,11 @@ import { MetaApiConnector } from "@/server/connectors/metaApiConnector";
 import { NeedsAuthorizationConnector } from "@/server/connectors/directStubs";
 import { ShopifyApiConnector } from "@/server/connectors/shopifyApiConnector";
 import { GoogleSheetsConnector } from "@/server/connectors/googleSheetsConnector";
+import { decryptCredentialPayload } from "@/server/connections/credentialCrypto";
+import {
+  toDirectConnectorConfig,
+  type OAuthProvider
+} from "@/server/connections/oauth";
 import type {
   Connector,
   IngestionMethod,
@@ -150,8 +155,16 @@ export async function POST(request: Request) {
       ingestionMethod: accountMapping.ingestionMethod,
       platform: accountMapping.platform
     });
+    const storedDirectConfig =
+      accountMapping.ingestionMethod === "direct_api"
+        ? await loadStoredDirectConnectorConfig({
+            accountMappingId: input.accountMappingId,
+            provider: accountMapping.platform as OAuthProvider
+          })
+        : {};
     const connectorConfig = {
       ...jsonConfigToRecord(accountMapping.config),
+      ...storedDirectConfig,
       ...input.connectorConfig,
       platform: accountMapping.platform,
       sourceAccountId: accountMapping.sourceAccountId,
@@ -245,4 +258,33 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+async function loadStoredDirectConnectorConfig(input: {
+  accountMappingId: string;
+  provider: OAuthProvider;
+}) {
+  const credential = await db.directCredential.findFirst({
+    where: {
+      accountMappingId: input.accountMappingId,
+      provider: input.provider,
+      status: "authorized"
+    },
+    orderBy: { updatedAt: "desc" }
+  });
+
+  if (!credential) {
+    return {};
+  }
+
+  const secret = process.env.DIRECT_CREDENTIAL_ENCRYPTION_KEY;
+
+  if (!secret) {
+    throw new Error("DIRECT_CREDENTIAL_ENCRYPTION_KEY is required");
+  }
+
+  return toDirectConnectorConfig(
+    input.provider,
+    decryptCredentialPayload(credential.encryptedToken, secret)
+  );
 }
