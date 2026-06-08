@@ -45,11 +45,8 @@ export default function NewReportPage() {
       clientId: String(formData.get("clientId") ?? ""),
       reportType,
       dateRange,
-      adSource: String(formData.get("adSource") ?? "google_ads_meta_ads"),
-      revenueSource: String(formData.get("revenueSource") ?? "shopify"),
-      generatedByUserId: String(
-        formData.get("generatedByUserId") ?? "demo_user"
-      )
+      adSource: String(formData.get("adSource") ?? "google_ads"),
+      revenueSource: String(formData.get("revenueSource") ?? "ga4")
     };
 
     try {
@@ -146,15 +143,11 @@ export default function NewReportPage() {
             </label>
             <select
               className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-              defaultValue="google_ads_meta_ads"
+              defaultValue="google_ads"
               id="adSource"
               name="adSource"
             >
               <option value="google_ads">Google Ads</option>
-              <option value="meta_ads">Meta Ads</option>
-              <option value="google_ads_meta_ads">
-                Google Ads + Meta Ads
-              </option>
             </select>
           </div>
 
@@ -164,21 +157,17 @@ export default function NewReportPage() {
             </label>
             <select
               className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-              defaultValue="shopify"
+              defaultValue="ga4"
               id="revenueSource"
               name="revenueSource"
             >
-              <option value="shopify">Shopify</option>
               <option value="ga4">GA4</option>
               <option value="google_ads_conversion_value">
                 Google Ads conversion value
               </option>
-              <option value="meta_purchase_value">Meta purchase value</option>
               <option value="manual">Manual</option>
             </select>
           </div>
-
-          <input name="generatedByUserId" type="hidden" value="demo_user" />
 
           {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
 

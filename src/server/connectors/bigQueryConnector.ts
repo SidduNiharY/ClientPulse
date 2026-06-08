@@ -26,7 +26,9 @@ function parsePlatform(value: string | undefined): Platform {
 }
 
 function requireConfig(config: Record<string, string>) {
-  if (!config.projectId || !config.query || !config.dateField || !config.sourceReference) {
+  const projectId = config.projectId ?? process.env.BIGQUERY_PROJECT_ID;
+
+  if (!projectId || !config.query || !config.dateField || !config.sourceReference) {
     throw new Error(
       "BigQuery connector requires projectId, query, dateField, and sourceReference"
     );
@@ -45,14 +47,18 @@ export class BigQueryConnector implements Connector {
     requireConfig(input.config);
 
     const bigQuery = new BigQuery({
-      projectId: input.config.projectId,
+      projectId: input.config.projectId ?? process.env.BIGQUERY_PROJECT_ID,
       credentials: {
         client_email: process.env.BIGQUERY_CLIENT_EMAIL,
         private_key: process.env.BIGQUERY_PRIVATE_KEY?.replace(/\\n/g, "\n")
       }
     });
     const [rows] = await bigQuery.query({
-      query: input.config.query
+      query: input.config.query,
+      params: {
+        dateFrom: input.dateRange.from,
+        dateTo: input.dateRange.to
+      }
     });
     const normalizedRows = normalizeRows({
       clientId: input.clientId,

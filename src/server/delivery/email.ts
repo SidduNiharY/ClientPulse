@@ -7,6 +7,10 @@ export async function sendReportEmail(input: {
   pdfBuffer: Buffer;
   filename: string;
 }): Promise<{ providerId: string | null }> {
+  if (process.env.EMAIL_DELIVERY_MODE === "mock") {
+    return { providerId: "mock-email" };
+  }
+
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT ?? 587),

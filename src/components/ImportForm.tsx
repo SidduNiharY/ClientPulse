@@ -18,8 +18,8 @@ type MappingOption = {
 
 const platformOptions = [
   { value: "google_ads", label: "Google Ads" },
-  { value: "meta_ads", label: "Meta Ads" },
-  { value: "shopify", label: "Shopify" }
+  { value: "ga4", label: "GA4 / BigQuery revenue" },
+  { value: "manual", label: "Manual / BigQuery revenue" }
 ];
 
 export function ImportForm() {
@@ -36,6 +36,13 @@ export function ImportForm() {
     () => mappings.find((mapping) => mapping.platform === platform),
     [mappings, platform]
   );
+  const selectedIngestionMethod = selectedMapping?.ingestionMethod;
+  const requiresCsv =
+    selectedIngestionMethod === "csv_upload" ||
+    selectedIngestionMethod === "platform_script" ||
+    selectedIngestionMethod === "third_party_connector";
+  const requiresBigQuery = selectedIngestionMethod === "bigquery";
+  const requiresGoogleSheets = selectedIngestionMethod === "google_sheets";
 
   useEffect(() => {
     fetch("/api/clients")
@@ -77,7 +84,7 @@ export function ImportForm() {
     const formData = new FormData(form);
     const file = formData.get("csvFile");
 
-    if (!(file instanceof File)) {
+    if (requiresCsv && !(file instanceof File)) {
       setError("Choose a CSV file to import.");
       return;
     }
@@ -85,7 +92,33 @@ export function ImportForm() {
     setIsSubmitting(true);
 
     try {
-      const csv = await file.text();
+      const csv = file instanceof File ? await file.text() : "";
+      const sourceReference =
+        requiresBigQuery
+          ? String(formData.get("sourceReference") ?? "")
+          : file instanceof File
+            ? file.name
+            : `${mapping.accountName}:${mapping.ingestionMethod}`;
+      const connectorConfig: Record<string, string> = {
+        sourceReference,
+        dateField: String(formData.get("dateField") ?? "Date"),
+        currency: selectedClient?.currency ?? "INR"
+      };
+
+      if (csv) {
+        connectorConfig.csv = csv;
+      }
+
+      if (requiresBigQuery) {
+        connectorConfig.query = String(formData.get("bigQueryQuery") ?? "");
+
+        const projectId = String(formData.get("projectId") ?? "");
+
+        if (projectId) {
+          connectorConfig.projectId = projectId;
+        }
+      }
+
       const response = await fetch("/api/imports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,12 +129,8 @@ export function ImportForm() {
             from: String(formData.get("dateFrom") ?? "2026-06-01"),
             to: String(formData.get("dateTo") ?? "2026-06-07")
           },
-          connectorConfig: {
-            csv,
-            sourceReference: file.name,
-            dateField: platform === "google_ads" ? "Date" : "date",
-            currency: selectedClient?.currency ?? "INR"
-          }
+          connectorConfig,
+          importMode: String(formData.get("importMode") ?? "append")
         })
       });
       const result = (await response.json()) as {
@@ -133,7 +162,7 @@ export function ImportForm() {
     >
       <div className="lg:col-span-2">
         <h2 className="text-lg font-semibold tracking-normal">
-          Run CSV import
+          Run import
         </h2>
       </div>
 
@@ -145,7 +174,13 @@ export function ImportForm() {
           className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
           id="importClient"
           onChange={(event) => {
-            setClientId(event.target.value);
+            const nextClientId = event.target.value;
+
+            if (nextClientId === clientId) {
+              return;
+            }
+
+            setClientId(nextClientId);
             setMappings([]);
           }}
           required
@@ -206,23 +241,135 @@ export function ImportForm() {
         />
       </div>
 
-      <div className="space-y-2 lg:col-span-2">
-        <label className="text-sm font-medium" htmlFor="csvFile">
-          CSV file
-        </label>
-        <input
-          accept=".csv,text/csv"
-          className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-          id="csvFile"
-          name="csvFile"
-          required
-          type="file"
-        />
-      </div>
+      {requiresBigQuery ? (
+        <>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="projectId">
+              BigQuery project ID
+            </label>
+            <input
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              id="projectId"
+              name="projectId"
+              placeholder="Uses BIGQUERY_PROJECT_ID if blank"
+              type="text"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="sourceReference">
+              Source reference
+            </label>
+            <input
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              id="sourceReference"
+              name="sourceReference"
+              placeholder="dataset.table"
+              required
+              type="text"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="dateField">
+              Date field
+            </label>
+            <input
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              defaultValue={platform === "google_ads" ? "Date" : "date"}
+              id="dateField"
+              key={`bigquery-date-field-${platform}`}
+              name="dateField"
+              required
+              type="text"
+            />
+          </div>
+
+          <div className="space-y-2 lg:col-span-2">
+            <label className="text-sm font-medium" htmlFor="bigQueryQuery">
+              BigQuery SQL
+            </label>
+            <textarea
+              className="min-h-32 w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 font-mono text-sm outline-none focus:border-[var(--accent)]"
+              id="bigQueryQuery"
+              name="bigQueryQuery"
+              required
+            />
+          </div>
+        </>
+      ) : null}
+
+      {requiresGoogleSheets ? (
+        <>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="dateField">
+              Date field
+            </label>
+            <input
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              defaultValue="Date"
+              id="dateField"
+              key={`sheets-date-field-${platform}`}
+              name="dateField"
+              required
+              type="text"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="importMode">
+              Import mode
+            </label>
+            <select
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              defaultValue="replace"
+              id="importMode"
+              name="importMode"
+            >
+              <option value="replace">Replace matching dates</option>
+              <option value="append">Append only</option>
+            </select>
+          </div>
+        </>
+      ) : null}
+
+      {requiresCsv ? (
+        <>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="dateField">
+              Date field
+            </label>
+            <input
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              defaultValue={platform === "google_ads" ? "Date" : "date"}
+              id="dateField"
+              key={`csv-date-field-${platform}`}
+              name="dateField"
+              required
+              type="text"
+            />
+          </div>
+
+          <div className="space-y-2 lg:col-span-2">
+            <label className="text-sm font-medium" htmlFor="csvFile">
+              CSV file
+            </label>
+            <input
+              accept=".csv,text/csv"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              id="csvFile"
+              name="csvFile"
+              required
+              type="file"
+            />
+          </div>
+        </>
+      ) : null}
 
       {selectedMapping ? (
         <p className="text-sm text-[var(--muted)] lg:col-span-2">
-          Importing through {selectedMapping.accountName}.
+          Importing through {selectedMapping.accountName} using{" "}
+          {selectedMapping.ingestionMethod}.
         </p>
       ) : null}
       {status ? (

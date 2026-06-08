@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useHydrated } from "./useHydrated";
 
-type Provider = "google_ads" | "meta_ads" | "ga4" | "shopify";
+type Provider = "google_ads" | "ga4";
 
 export type DirectMappingOption = {
   id: string;
@@ -13,9 +13,7 @@ export type DirectMappingOption = {
 
 const providerOptions: Array<{ provider: Provider; label: string }> = [
   { provider: "google_ads", label: "Google Ads" },
-  { provider: "meta_ads", label: "Meta Ads" },
   { provider: "ga4", label: "GA4" },
-  { provider: "shopify", label: "Shopify" }
 ];
 
 const fieldOptions: Record<
@@ -29,10 +27,6 @@ const fieldOptions: Record<
     { name: "refreshToken", label: "Refresh token", type: "password" },
     { name: "loginCustomerId", label: "MCC login customer ID" }
   ],
-  meta_ads: [
-    { name: "accessToken", label: "Access token", type: "password" },
-    { name: "adAccountId", label: "Ad account ID" }
-  ],
   ga4: [
     { name: "propertyId", label: "GA4 property ID" },
     { name: "oauthClientId", label: "OAuth client ID" },
@@ -40,10 +34,6 @@ const fieldOptions: Record<
     { name: "refreshToken", label: "Refresh token", type: "password" },
     { name: "clientEmail", label: "Service account email" },
     { name: "privateKey", label: "Service account private key", type: "password" }
-  ],
-  shopify: [
-    { name: "storeDomain", label: "Store domain" },
-    { name: "accessToken", label: "Admin API access token", type: "password" }
   ]
 };
 

@@ -2,193 +2,104 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const clientSeed = {
-  id: "demo-ecommerce-client",
-  name: "Demo Ecommerce Client",
-  clientType: "ecommerce",
-  primaryEmail: "client@example.com",
-  whatsappNumber: "+919999999999",
-  currency: "INR"
-};
+const legacyDemoClientId = "demo-ecommerce-client";
+const defaultAgencyUserEmail =
+  process.env.DEFAULT_AGENCY_USER_EMAIL ?? "agency@example.com";
 
-const accountMappings = [
-  {
-    platform: "google_ads" as const,
-    accountName: "Demo Google Ads",
-    sourceAccountId: "123-456-7890",
-    ingestionMethod: "csv_upload" as const
-  },
-  {
-    platform: "meta_ads" as const,
-    accountName: "Demo Meta Ads",
-    sourceAccountId: "act_123456789",
-    ingestionMethod: "csv_upload" as const
-  },
-  {
-    platform: "ga4" as const,
-    accountName: "Demo GA4",
-    sourceAccountId: "properties/123456789",
-    ingestionMethod: "csv_upload" as const
-  },
-  {
-    platform: "shopify" as const,
-    accountName: "Demo Shopify",
-    sourceAccountId: "demo-store.myshopify.com",
-    ingestionMethod: "csv_upload" as const
-  }
-];
+async function removeLegacyDemoClient() {
+  const reports = await prisma.report.findMany({
+    where: { clientId: legacyDemoClientId },
+    select: { id: true }
+  });
+  const reportIds = reports.map((report) => report.id);
+  const versions = await prisma.reportVersion.findMany({
+    where: { reportId: { in: reportIds } },
+    select: { id: true }
+  });
+  const versionIds = versions.map((version) => version.id);
+  const syncRuns = await prisma.syncRun.findMany({
+    where: { clientId: legacyDemoClientId },
+    select: { id: true }
+  });
+  const syncRunIds = syncRuns.map((run) => run.id);
+  const mappings = await prisma.accountMapping.findMany({
+    where: { clientId: legacyDemoClientId },
+    select: { id: true }
+  });
+  const mappingIds = mappings.map((mapping) => mapping.id);
+
+  await prisma.$transaction([
+    prisma.insight.deleteMany({
+      where: { reportVersionId: { in: versionIds } }
+    }),
+    prisma.anomaly.deleteMany({
+      where: { reportVersionId: { in: versionIds } }
+    }),
+    prisma.dataQualityScore.deleteMany({
+      where: { reportVersionId: { in: versionIds } }
+    }),
+    prisma.emailDraft.deleteMany({
+      where: { reportId: { in: reportIds } }
+    }),
+    prisma.deliveryLog.deleteMany({
+      where: { reportId: { in: reportIds } }
+    }),
+    prisma.approvalEvent.deleteMany({
+      where: { reportId: { in: reportIds } }
+    }),
+    prisma.reportVersion.deleteMany({
+      where: { id: { in: versionIds } }
+    }),
+    prisma.report.deleteMany({
+      where: { id: { in: reportIds } }
+    }),
+    prisma.rawSourceRow.deleteMany({
+      where: { syncRunId: { in: syncRunIds } }
+    }),
+    prisma.metricRow.deleteMany({
+      where: { clientId: legacyDemoClientId }
+    }),
+    prisma.syncRun.deleteMany({
+      where: { id: { in: syncRunIds } }
+    }),
+    prisma.connector.deleteMany({
+      where: { accountMappingId: { in: mappingIds } }
+    }),
+    prisma.directCredential.deleteMany({
+      where: { accountMappingId: { in: mappingIds } }
+    }),
+    prisma.accountMapping.deleteMany({
+      where: { id: { in: mappingIds } }
+    }),
+    prisma.clientGoal.deleteMany({
+      where: { clientId: legacyDemoClientId }
+    }),
+    prisma.clientBudget.deleteMany({
+      where: { clientId: legacyDemoClientId }
+    }),
+    prisma.client.deleteMany({
+      where: { id: legacyDemoClientId }
+    })
+  ]);
+}
 
 async function main() {
+  await removeLegacyDemoClient();
+
   const user = await prisma.user.upsert({
-    where: { email: "agency@example.com" },
+    where: { email: defaultAgencyUserEmail },
     update: {
       name: "Agency Admin",
       role: "admin"
     },
     create: {
-      email: "agency@example.com",
+      email: defaultAgencyUserEmail,
       name: "Agency Admin",
       role: "admin"
     }
   });
 
-  await prisma.connector.deleteMany({
-    where: {
-      accountMapping: {
-        clientId: clientSeed.id
-      }
-    }
-  });
-  await prisma.accountMapping.deleteMany({
-    where: { clientId: clientSeed.id }
-  });
-  await prisma.clientGoal.deleteMany({
-    where: { clientId: clientSeed.id }
-  });
-  await prisma.clientBudget.deleteMany({
-    where: { clientId: clientSeed.id }
-  });
-
-  const client = await prisma.client.upsert({
-    where: { id: clientSeed.id },
-    update: {
-      name: clientSeed.name,
-      clientType: clientSeed.clientType,
-      primaryEmail: clientSeed.primaryEmail,
-      whatsappNumber: clientSeed.whatsappNumber,
-      currency: clientSeed.currency,
-      accountMappings: {
-        create: accountMappings.map((mapping) => ({
-          ...mapping,
-          config: {
-            importFormat: "csv",
-            ownerEmail: user.email
-          },
-          connectors: {
-            create: {
-              connectorType: mapping.ingestionMethod,
-              healthStatus: "not_connected"
-            }
-          }
-        }))
-      },
-      goals: {
-        create: [
-          {
-            platform: "google_ads",
-            goalType: "roas",
-            targetValue: 4
-          },
-          {
-            platform: "meta_ads",
-            goalType: "cost_per_purchase",
-            targetValue: 500
-          },
-          {
-            platform: null,
-            goalType: "monthly_revenue",
-            targetValue: 1000000
-          }
-        ]
-      },
-      budgets: {
-        create: [
-          {
-            platform: "google_ads",
-            monthlyBudget: 250000,
-            weeklyBudget: 62500,
-            startsOn: new Date("2026-01-01")
-          },
-          {
-            platform: "meta_ads",
-            monthlyBudget: 200000,
-            weeklyBudget: 50000,
-            startsOn: new Date("2026-01-01")
-          }
-        ]
-      }
-    },
-    create: {
-      id: clientSeed.id,
-      name: clientSeed.name,
-      clientType: clientSeed.clientType,
-      primaryEmail: clientSeed.primaryEmail,
-      whatsappNumber: clientSeed.whatsappNumber,
-      currency: clientSeed.currency,
-      accountMappings: {
-        create: accountMappings.map((mapping) => ({
-          ...mapping,
-          config: {
-            importFormat: "csv",
-            ownerEmail: user.email
-          },
-          connectors: {
-            create: {
-              connectorType: mapping.ingestionMethod,
-              healthStatus: "not_connected"
-            }
-          }
-        }))
-      },
-      goals: {
-        create: [
-          {
-            platform: "google_ads",
-            goalType: "roas",
-            targetValue: 4
-          },
-          {
-            platform: "meta_ads",
-            goalType: "cost_per_purchase",
-            targetValue: 500
-          },
-          {
-            platform: null,
-            goalType: "monthly_revenue",
-            targetValue: 1000000
-          }
-        ]
-      },
-      budgets: {
-        create: [
-          {
-            platform: "google_ads",
-            monthlyBudget: 250000,
-            weeklyBudget: 62500,
-            startsOn: new Date("2026-01-01")
-          },
-          {
-            platform: "meta_ads",
-            monthlyBudget: 200000,
-            weeklyBudget: 50000,
-            startsOn: new Date("2026-01-01")
-          }
-        ]
-      }
-    }
-  });
-
-  console.log(`Seeded ${user.email} and ${client.name}`);
+  console.log(`Seeded agency user ${user.email}`);
 }
 
 main()

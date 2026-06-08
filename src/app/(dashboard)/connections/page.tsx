@@ -26,19 +26,9 @@ const providerMetadata = [
     description: "OAuth connection with developer token and MCC login customer ID."
   },
   {
-    provider: "meta_ads",
-    label: "Meta Ads",
-    description: "Marketing API token with ads read permissions."
-  },
-  {
     provider: "ga4",
     label: "GA4",
     description: "OAuth or service account access to the GA4 property."
-  },
-  {
-    provider: "shopify",
-    label: "Shopify",
-    description: "Store domain and read orders access token."
   }
 ];
 

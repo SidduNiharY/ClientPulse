@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/server/db/client";
-import { approveDemoReport } from "@/server/demo/memoryStore";
+import { resolveAgencyUserId } from "@/server/users/defaultUser";
 
 const approvalSchema = z.object({
-  userId: z.string().min(1),
+  userId: z.string().min(1).optional(),
   comment: z.string().optional(),
   confirmPoorQuality: z.boolean().optional()
 });
@@ -70,12 +70,13 @@ export async function POST(
     }
 
     const approvedAt = new Date();
+    const userId = await resolveAgencyUserId(parsed.data.userId);
 
     await db.$transaction([
       db.approvalEvent.create({
         data: {
           reportId,
-          userId: parsed.data.userId,
+          userId,
           action: "approved",
           version: latestVersion.versionNumber,
           comment: parsed.data.comment
@@ -95,13 +96,12 @@ export async function POST(
       status: "approved",
       approvedAt: approvedAt.toISOString()
     });
-  } catch {
-    const approvedReport = approveDemoReport(reportId);
-
-    if (!approvedReport) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(approvedReport);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Could not approve report"
+      },
+      { status: 500 }
+    );
   }
 }

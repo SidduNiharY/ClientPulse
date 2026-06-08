@@ -16,9 +16,7 @@ export type AccountMappingItem = {
 
 const platformOptions = [
   { value: "google_ads", label: "Google Ads" },
-  { value: "meta_ads", label: "Meta Ads" },
   { value: "ga4", label: "GA4" },
-  { value: "shopify", label: "Shopify" },
   { value: "manual", label: "Manual fallback" }
 ];
 
@@ -40,9 +38,11 @@ export function AccountMappingForm({
 }) {
   const [mappings, setMappings] =
     useState<AccountMappingItem[]>(initialMappings);
+  const [ingestionMethod, setIngestionMethod] = useState("csv_upload");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isHydrated = useHydrated();
+  const isGoogleSheets = ingestionMethod === "google_sheets";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,10 +54,14 @@ export function AccountMappingForm({
       platform: String(formData.get("platform") ?? "google_ads"),
       accountName: String(formData.get("accountName") ?? ""),
       sourceAccountId: String(formData.get("sourceAccountId") ?? ""),
-      ingestionMethod: String(formData.get("ingestionMethod") ?? "csv_upload"),
+      ingestionMethod,
       fallbackMethod: String(formData.get("fallbackMethod") ?? "csv_upload"),
       config: {
-        dateField: String(formData.get("dateField") ?? "Date")
+        dateField: String(formData.get("dateField") ?? "Date"),
+        spreadsheetId: String(formData.get("spreadsheetId") ?? ""),
+        range: String(formData.get("range") ?? ""),
+        accountIdField: String(formData.get("accountIdField") ?? ""),
+        sourceReference: String(formData.get("sourceReference") ?? "")
       }
     };
 
@@ -150,9 +154,10 @@ export function AccountMappingForm({
           </label>
           <select
             className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-            defaultValue="csv_upload"
             id="ingestionMethod"
             name="ingestionMethod"
+            onChange={(event) => setIngestionMethod(event.target.value)}
+            value={ingestionMethod}
           >
             {ingestionOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -161,6 +166,66 @@ export function AccountMappingForm({
             ))}
           </select>
         </div>
+
+        {isGoogleSheets ? (
+          <>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="spreadsheetId">
+                Spreadsheet ID
+              </label>
+              <input
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                defaultValue="1jRuA3voNNsoCUTRAkUVGJIEe5_zU6k9jLwMMi9i8Z5E"
+                id="spreadsheetId"
+                name="spreadsheetId"
+                required={isGoogleSheets}
+                type="text"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="range">
+                Sheet range
+              </label>
+              <input
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                defaultValue="Data Extraction Spreadsheet!A:Q"
+                id="range"
+                name="range"
+                required={isGoogleSheets}
+                type="text"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="accountIdField">
+                Account ID field
+              </label>
+              <input
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                defaultValue="Account ID"
+                id="accountIdField"
+                name="accountIdField"
+                required={isGoogleSheets}
+                type="text"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="sourceReference">
+                Source reference
+              </label>
+              <input
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                defaultValue="google-ads-mcc-sheet"
+                id="sourceReference"
+                name="sourceReference"
+                required={isGoogleSheets}
+                type="text"
+              />
+            </div>
+          </>
+        ) : null}
 
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="fallbackMethod">

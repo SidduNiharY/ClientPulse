@@ -20,7 +20,6 @@ import type {
   Platform
 } from "@/server/connectors/types";
 import { db } from "@/server/db/client";
-import { runDemoImport } from "@/server/demo/memoryStore";
 
 const importRequestSchema = z.object({
   clientId: z.string().min(1),
@@ -29,7 +28,8 @@ const importRequestSchema = z.object({
     from: z.string().min(1),
     to: z.string().min(1)
   }),
-  connectorConfig: z.record(z.string(), z.string()).default({})
+  connectorConfig: z.record(z.string(), z.string()).default({}),
+  importMode: z.enum(["append", "replace"]).default("append")
 });
 
 function createConnector(input: {
@@ -176,31 +176,48 @@ export async function POST(request: Request) {
       dateRange: input.dateRange,
       config: connectorConfig
     });
+    const rawRows = result.rows.map((row) => ({
+      syncRunId: syncRun.id,
+      sourceReference: row.sourceTrace.sourceReference,
+      sourcePayload: row as unknown as Prisma.InputJsonObject
+    }));
+    const metricRows = result.rows.map((row) => ({
+      clientId: row.clientId,
+      syncRunId: syncRun.id,
+      platform: row.platform,
+      ingestionMethod: row.ingestionMethod,
+      sourceAccountId: row.sourceAccountId,
+      metricName: row.metricName,
+      metricValue: row.metricValue,
+      currency: row.currency,
+      occurredOn: new Date(row.occurredOn),
+      dimensions: row.dimensions,
+      originalFieldName: row.sourceTrace.originalFieldName,
+      sourceReference: row.sourceTrace.sourceReference,
+      importedAt: new Date(row.sourceTrace.importedAt)
+    }));
+    const replaceExistingMetrics =
+      input.importMode === "replace"
+        ? db.metricRow.deleteMany({
+            where: {
+              clientId: input.clientId,
+              platform: accountMapping.platform,
+              sourceAccountId: accountMapping.sourceAccountId,
+              occurredOn: {
+                gte: new Date(input.dateRange.from),
+                lte: new Date(input.dateRange.to)
+              }
+            }
+          })
+        : null;
 
     await db.$transaction([
+      ...(replaceExistingMetrics ? [replaceExistingMetrics] : []),
       db.rawSourceRow.createMany({
-        data: result.rows.map((row) => ({
-          syncRunId: syncRun.id,
-          sourceReference: row.sourceTrace.sourceReference,
-          sourcePayload: row as unknown as Prisma.InputJsonObject
-        }))
+        data: rawRows
       }),
       db.metricRow.createMany({
-        data: result.rows.map((row) => ({
-          clientId: row.clientId,
-          syncRunId: syncRun.id,
-          platform: row.platform,
-          ingestionMethod: row.ingestionMethod,
-          sourceAccountId: row.sourceAccountId,
-          metricName: row.metricName,
-          metricValue: row.metricValue,
-          currency: row.currency,
-          occurredOn: new Date(row.occurredOn),
-          dimensions: row.dimensions,
-          originalFieldName: row.sourceTrace.originalFieldName,
-          sourceReference: row.sourceTrace.sourceReference,
-          importedAt: new Date(row.sourceTrace.importedAt)
-        }))
+        data: metricRows
       }),
       db.syncRun.update({
         where: { id: syncRun.id },
@@ -226,18 +243,7 @@ export async function POST(request: Request) {
       warnings: result.warnings
     });
   } catch (error) {
-    let message = error instanceof Error ? error.message : "Import failed";
-
-    if (!syncRunId) {
-      try {
-        const result = await runDemoImport(input);
-
-        return NextResponse.json(result);
-      } catch (demoError) {
-        message =
-          demoError instanceof Error ? demoError.message : "Import failed";
-      }
-    }
+    const message = error instanceof Error ? error.message : "Import failed";
 
     if (syncRunId) {
       await db.syncRun.update({

@@ -33,7 +33,6 @@ export function ReportActions({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: "demo_user",
           confirmPoorQuality: true
         })
       });

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/server/db/client";
-import { createDemoClient, listDemoClients } from "@/server/demo/memoryStore";
 
 const clientCreateSchema = z.object({
   name: z.string().min(1),
@@ -44,13 +43,14 @@ export async function GET() {
       }
     });
 
-    if (clients.length === 0) {
-      return NextResponse.json(listDemoClients().map(serializeClient));
-    }
-
     return NextResponse.json(clients.map(serializeClient));
-  } catch {
-    return NextResponse.json(listDemoClients().map(serializeClient));
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Could not list clients"
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -79,9 +79,12 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(serializeClient(client), { status: 201 });
-  } catch {
-    return NextResponse.json(serializeClient(createDemoClient(parsed.data)), {
-      status: 201
-    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Could not create client"
+      },
+      { status: 500 }
+    );
   }
 }

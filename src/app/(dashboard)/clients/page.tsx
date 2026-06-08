@@ -1,6 +1,5 @@
 import { ClientForm, type ClientListItem } from "@/components/ClientForm";
 import { db } from "@/server/db/client";
-import { listDemoClients } from "@/server/demo/memoryStore";
 
 export const dynamic = "force-dynamic";
 
@@ -18,22 +17,12 @@ async function getClients(): Promise<ClientListItem[]> {
       }
     });
 
-    if (clients.length === 0) {
-      return listDemoClients().map((client) => ({
-        ...client,
-        createdAt: client.createdAt.toISOString()
-      }));
-    }
-
     return clients.map((client) => ({
       ...client,
       createdAt: client.createdAt.toISOString()
     }));
   } catch {
-    return listDemoClients().map((client) => ({
-      ...client,
-      createdAt: client.createdAt.toISOString()
-    }));
+    return [];
   }
 }
 

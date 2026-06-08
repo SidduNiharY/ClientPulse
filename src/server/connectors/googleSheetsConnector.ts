@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import Papa from "papaparse";
 import { normalizeRows } from "@/server/normalization/normalizeRows";
 import type {
   Connector,
@@ -53,6 +54,100 @@ function sheetValuesToRows(values: unknown[][]): SheetRow[] {
   );
 }
 
+function normalizeAccountId(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replaceAll("-", "")
+    .trim();
+}
+
+function filterRowsBySourceAccount(input: {
+  rows: SheetRow[];
+  config: Record<string, string>;
+}) {
+  const accountIdField = input.config.accountIdField;
+
+  if (!accountIdField) {
+    return input.rows;
+  }
+
+  const sourceAccountId = normalizeAccountId(input.config.sourceAccountId);
+
+  if (!sourceAccountId) {
+    return input.rows;
+  }
+
+  return input.rows.filter(
+    (row) => normalizeAccountId(row[accountIdField]) === sourceAccountId
+  );
+}
+
+function filterRowsByDateRange(input: {
+  rows: SheetRow[];
+  dateField: string;
+  dateRange: { from: string; to: string };
+}) {
+  return input.rows.filter((row) => {
+    const occurredOn = String(row[input.dateField] ?? "");
+
+    return occurredOn >= input.dateRange.from && occurredOn <= input.dateRange.to;
+  });
+}
+
+function shouldUsePublicCsv(config: Record<string, string>) {
+  return (
+    config.publicCsv === "true" ||
+    !process.env.GOOGLE_SHEETS_CLIENT_EMAIL ||
+    !process.env.GOOGLE_SHEETS_PRIVATE_KEY
+  );
+}
+
+function sheetNameFromRange(range: string) {
+  return range.split("!")[0]?.replace(/^'|'$/g, "") || range;
+}
+
+async function fetchPublicCsvRows(config: Record<string, string>) {
+  const sheetName = sheetNameFromRange(config.range);
+  const url =
+    `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}` +
+    `/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(
+      `Public Google Sheet CSV export failed with ${response.status}`
+    );
+  }
+
+  const csv = await response.text();
+  const parsed = Papa.parse<SheetRow>(csv, {
+    header: true,
+    skipEmptyLines: true
+  });
+
+  if (parsed.errors.length > 0) {
+    throw new Error(
+      `Public Google Sheet CSV parse failed: ${parsed.errors[0].message}`
+    );
+  }
+
+  return parsed.data;
+}
+
+async function fetchSheetsApiRows(config: Record<string, string>) {
+  const auth = new google.auth.JWT({
+    email: process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
+    key: process.env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+  });
+  const sheets = google.sheets({ version: "v4", auth });
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: config.spreadsheetId,
+    range: config.range
+  });
+
+  return sheetValuesToRows(response.data.values ?? []);
+}
+
 export class GoogleSheetsConnector implements Connector {
   readonly connectorType = connectorType;
 
@@ -64,17 +159,18 @@ export class GoogleSheetsConnector implements Connector {
   }): Promise<ConnectorResult> {
     requireConfig(input.config);
 
-    const auth = new google.auth.JWT({
-      email: process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
-      key: process.env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    const rows = shouldUsePublicCsv(input.config)
+      ? await fetchPublicCsvRows(input.config)
+      : await fetchSheetsApiRows(input.config);
+    const accountRows = filterRowsBySourceAccount({
+      rows,
+      config: input.config
     });
-    const sheets = google.sheets({ version: "v4", auth });
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: input.config.spreadsheetId,
-      range: input.config.range
+    const filteredRows = filterRowsByDateRange({
+      rows: accountRows,
+      dateField: input.config.dateField,
+      dateRange: input.dateRange
     });
-    const rows = sheetValuesToRows(response.data.values ?? []);
     const normalizedRows = normalizeRows({
       clientId: input.clientId,
       platform: parsePlatform(input.config.platform),
@@ -84,13 +180,18 @@ export class GoogleSheetsConnector implements Connector {
       sourceReference: input.config.sourceReference,
       dateField: input.config.dateField,
       currency: input.config.currency ?? null,
-      rows
+      rows: filteredRows
     });
 
     return {
       rows: normalizedRows,
       rowsImported: normalizedRows.length,
-      warnings: []
+      warnings:
+        input.config.accountIdField && rows.length > 0 && accountRows.length === 0
+          ? [
+              `No Google Sheets rows matched ${input.config.accountIdField}=${input.config.sourceAccountId}`
+            ]
+          : []
     };
   }
 }

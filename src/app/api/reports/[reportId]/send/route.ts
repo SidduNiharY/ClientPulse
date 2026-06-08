@@ -7,7 +7,6 @@ import { db } from "@/server/db/client";
 import { buildClientSummaryEmail } from "@/server/delivery/emailDraft";
 import { sendReportEmail } from "@/server/delivery/email";
 import { sendReportWhatsApp } from "@/server/delivery/whatsapp";
-import { sendDemoReport } from "@/server/demo/memoryStore";
 import { renderReportHtml } from "@/server/pdf/reportTemplate";
 import { renderPdfFromHtml } from "@/server/pdf/renderPdf";
 import type { ReportDraftSnapshot } from "@/server/reporting/reportBuilder";
@@ -57,10 +56,13 @@ export async function POST(
         }
       }
     });
-  } catch {
-    const result = sendDemoReport(reportId, parsed.data.method);
-
-    return NextResponse.json(result.body, { status: result.status });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Could not load report"
+      },
+      { status: 500 }
+    );
   }
 
   const version = report?.versions[0];

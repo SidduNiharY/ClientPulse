@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type {
   DateRange,
+  MetricName,
   NormalizedMetricRow,
   Platform,
   SourceTrace
@@ -17,6 +18,7 @@ import {
   type MetricTotals,
   type RevenueSource
 } from "./metrics";
+import { detectOpportunities, type OpportunityResult } from "./opportunities";
 import {
   buildSourceTraceSummary,
   collectSourceTraceDetails,
@@ -56,6 +58,20 @@ type GoalForInsights = {
   targetValue: number;
 };
 
+export type ReportDailyPerformance = MetricTotals & {
+  date: string;
+  selectedRevenue: number;
+};
+
+export type ReportCampaignPerformance = MetricTotals & {
+  campaign: string;
+  ctr: number | null;
+  cpc: number | null;
+  costPerConversion: number | null;
+  conversionRate: number | null;
+  platformRoas: number | null;
+};
+
 export type ReportDraftSnapshot = {
   status: "needs_review";
   clientId: string;
@@ -64,10 +80,14 @@ export type ReportDraftSnapshot = {
   dateRange: DateRange;
   adSource: AdSourceSelection;
   revenueSource: RevenueSourceSelection;
+  currency?: string | null;
   adTotals: MetricTotals;
   selectedRevenue: number;
   totalMarketingSpend: number;
   derivedMetrics: DerivedMetrics;
+  dailyPerformance?: ReportDailyPerformance[];
+  campaignPerformance?: ReportCampaignPerformance[];
+  opportunities?: OpportunityResult[];
   sourceTrace: SourceTrace[];
   sourceTraceSummary: SourceTraceSummary[];
   dataQuality: ReturnType<typeof scoreDataQuality>;
@@ -94,6 +114,8 @@ export function buildReportDraftSnapshot(input: {
     getAdPlatforms(input.request.adSource).includes(row.platform)
   );
   const adTotals = sumMetricTotals(adRows);
+  const revenuePlatform = getRevenuePlatform(input.request.revenueSource);
+  const revenueMetricName = getRevenueMetricName(input.request.revenueSource);
   const shopifyRevenue = sumMetric(input.metricRows, "shopify", "revenue");
   const ga4Revenue = sumMetric(input.metricRows, "ga4", "revenue");
   const googleAdsConversionValue = sumMetric(
@@ -122,6 +144,14 @@ export function buildReportDraftSnapshot(input: {
     selectedRevenue,
     totalMarketingSpend
   });
+  const dailyPerformance = buildDailyPerformance({
+    rows: input.metricRows,
+    adPlatforms: getAdPlatforms(input.request.adSource),
+    revenuePlatform,
+    revenueMetricName
+  });
+  const campaignPerformance = buildCampaignPerformance(adRows);
+  const opportunities = detectOpportunities({ rows: adRows }).slice(0, 8);
   const missingPlatforms = findMissingPlatforms(input.request, input.metricRows);
   const dataQuality = scoreDataQuality({
     selectedSourcesSynced: missingPlatforms.length === 0,
@@ -188,10 +218,14 @@ export function buildReportDraftSnapshot(input: {
     dateRange: input.request.dateRange,
     adSource: input.request.adSource,
     revenueSource: input.request.revenueSource,
+    currency: findPrimaryCurrency(input.metricRows),
     adTotals,
     selectedRevenue,
     totalMarketingSpend,
     derivedMetrics,
+    dailyPerformance,
+    campaignPerformance,
+    opportunities,
     sourceTrace: collectSourceTraceDetails(input.metricRows),
     sourceTraceSummary: buildSourceTraceSummary(input.metricRows),
     dataQuality,
@@ -319,6 +353,101 @@ function sumMetricTotals(rows: ReportDraftMetricRow[]): MetricTotals {
   };
 }
 
+function emptyMetricTotals(): MetricTotals {
+  return {
+    impressions: 0,
+    clicks: 0,
+    spend: 0,
+    conversions: 0,
+    conversionValue: 0,
+    revenue: 0,
+    orders: 0,
+    leads: 0
+  };
+}
+
+function buildDailyPerformance(input: {
+  rows: ReportDraftMetricRow[];
+  adPlatforms: Platform[];
+  revenuePlatform: Platform;
+  revenueMetricName: MetricName;
+}): ReportDailyPerformance[] {
+  const byDate = new Map<string, ReportDailyPerformance>();
+
+  for (const row of input.rows) {
+    const date = row.occurredOn;
+    const totals = byDate.get(date) ?? {
+      date,
+      ...emptyMetricTotals(),
+      selectedRevenue: 0
+    };
+
+    if (input.adPlatforms.includes(row.platform)) {
+      addMetricToTotals(totals, row.metricName, row.metricValue);
+    }
+
+    if (
+      row.platform === input.revenuePlatform &&
+      row.metricName === input.revenueMetricName
+    ) {
+      totals.selectedRevenue += row.metricValue;
+    }
+
+    byDate.set(date, totals);
+  }
+
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function buildCampaignPerformance(
+  rows: ReportDraftMetricRow[]
+): ReportCampaignPerformance[] {
+  const byCampaign = new Map<string, MetricTotals>();
+
+  for (const row of rows) {
+    const campaign = row.dimensions.campaign?.trim() || "Unattributed campaign";
+    const totals = byCampaign.get(campaign) ?? emptyMetricTotals();
+
+    addMetricToTotals(totals, row.metricName, row.metricValue);
+    byCampaign.set(campaign, totals);
+  }
+
+  return [...byCampaign.entries()]
+    .map(([campaign, totals]) => ({
+      campaign,
+      ...totals,
+      ctr: divide(totals.clicks, totals.impressions),
+      cpc: divide(totals.spend, totals.clicks),
+      costPerConversion: divide(totals.spend, totals.conversions),
+      conversionRate: divide(totals.conversions, totals.clicks),
+      platformRoas: divide(totals.conversionValue, totals.spend)
+    }))
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 10);
+}
+
+function addMetricToTotals(
+  totals: MetricTotals,
+  metricName: NormalizedMetricRow["metricName"],
+  metricValue: number
+) {
+  if (metricName === "impressions") totals.impressions += metricValue;
+  if (metricName === "clicks") totals.clicks += metricValue;
+  if (metricName === "spend") totals.spend += metricValue;
+  if (metricName === "conversions") totals.conversions += metricValue;
+  if (metricName === "conversion_value") {
+    totals.conversionValue += metricValue;
+  }
+  if (metricName === "revenue") totals.revenue += metricValue;
+  if (metricName === "orders") totals.orders += metricValue;
+  if (metricName === "leads") totals.leads += metricValue;
+}
+
+function divide(numerator: number, denominator: number): number | null {
+  if (denominator === 0) return null;
+  return numerator / denominator;
+}
+
 function sumMetric(
   rows: ReportDraftMetricRow[],
   platform: Platform,
@@ -356,6 +485,21 @@ function getRevenuePlatform(selection: RevenueSourceSelection): Platform {
   if (selection === "google_ads_conversion_value") return "google_ads";
   if (selection === "meta_purchase_value") return "meta_ads";
   return "manual";
+}
+
+function getRevenueMetricName(selection: RevenueSourceSelection): MetricName {
+  if (
+    selection === "google_ads_conversion_value" ||
+    selection === "meta_purchase_value"
+  ) {
+    return "conversion_value";
+  }
+
+  return "revenue";
+}
+
+function findPrimaryCurrency(rows: ReportDraftMetricRow[]) {
+  return rows.find((row) => row.currency)?.currency ?? null;
 }
 
 function findMissingPlatforms(
