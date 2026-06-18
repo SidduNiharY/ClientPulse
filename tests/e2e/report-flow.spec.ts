@@ -44,7 +44,7 @@ test("agency user imports data, generates, approves, and sends an email report",
 
   await expect(page.getByText("Needs review")).toBeVisible();
   await expect(page.getByText("GA4 revenue", { exact: true })).toBeVisible();
-  await expect(page.getByText("Data quality")).toBeVisible();
+  await expect(page.getByText("Data quality", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Approved")).toBeVisible();

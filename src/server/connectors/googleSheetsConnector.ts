@@ -11,6 +11,7 @@ import type {
 type SheetRow = Record<string, string | number | null | undefined>;
 
 const connectorType: IngestionMethod = "google_sheets";
+const defaultSheetRange = "Sheet1!A:Z";
 
 function parsePlatform(value: string | undefined): Platform {
   if (
@@ -26,15 +27,48 @@ function parsePlatform(value: string | undefined): Platform {
   throw new Error("Google Sheets connector requires a valid platform");
 }
 
+function parseGoogleSheetUrl(sheetUrl: string | undefined) {
+  if (!sheetUrl) {
+    return {};
+  }
+
+  try {
+    const url = new URL(sheetUrl);
+    const spreadsheetId = url.pathname.match(/\/spreadsheets\/d\/([^/]+)/)?.[1];
+    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+    const gid = url.searchParams.get("gid") ?? hashParams.get("gid") ?? undefined;
+
+    return {
+      gid,
+      spreadsheetId
+    };
+  } catch {
+    return {};
+  }
+}
+
+function buildEffectiveConfig(config: Record<string, string>): Record<string, string> {
+  const parsed = parseGoogleSheetUrl(config.sheetUrl);
+  const spreadsheetId = config.spreadsheetId || parsed.spreadsheetId;
+  const range = config.range || defaultSheetRange;
+  const gid = config.gid || parsed.gid;
+  const sourceReference =
+    config.sourceReference || config.sheetUrl || `google-sheet:${spreadsheetId}`;
+
+  return {
+    ...config,
+    ...(gid ? { gid } : {}),
+    rangeWasProvided: config.range ? "true" : "false",
+    range,
+    sourceReference,
+    spreadsheetId: spreadsheetId ?? ""
+  };
+}
+
 function requireConfig(config: Record<string, string>) {
-  if (
-    !config.spreadsheetId ||
-    !config.range ||
-    !config.dateField ||
-    !config.sourceReference
-  ) {
+  if (!config.spreadsheetId || !config.dateField || !config.sourceReference) {
     throw new Error(
-      "Google Sheets connector requires spreadsheetId, range, dateField, and sourceReference"
+      "Google Sheets connector requires a Google Sheet URL or spreadsheet ID, plus a date field"
     );
   }
 }
@@ -109,7 +143,9 @@ async function fetchPublicCsvRows(config: Record<string, string>) {
   const sheetName = sheetNameFromRange(config.range);
   const url =
     `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}` +
-    `/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+    (config.gid
+      ? `/gviz/tq?tqx=out:csv&gid=${encodeURIComponent(config.gid)}`
+      : `/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`);
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -140,12 +176,37 @@ async function fetchSheetsApiRows(config: Record<string, string>) {
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
   });
   const sheets = google.sheets({ version: "v4", auth });
+  const range =
+    config.gid && config.rangeWasProvided !== "true"
+      ? await resolveRangeFromGid({
+          gid: config.gid,
+          sheets,
+          spreadsheetId: config.spreadsheetId
+        })
+      : config.range;
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: config.spreadsheetId,
-    range: config.range
+    range
   });
 
   return sheetValuesToRows(response.data.values ?? []);
+}
+
+async function resolveRangeFromGid(input: {
+  gid: string;
+  sheets: ReturnType<typeof google.sheets>;
+  spreadsheetId: string;
+}) {
+  const spreadsheet = await input.sheets.spreadsheets.get({
+    fields: "sheets.properties(sheetId,title)",
+    spreadsheetId: input.spreadsheetId
+  });
+  const sheet = spreadsheet.data.sheets?.find(
+    (candidate) => String(candidate.properties?.sheetId) === input.gid
+  );
+  const title = sheet?.properties?.title ?? "Sheet1";
+
+  return `'${title.replaceAll("'", "''")}'!A:Z`;
 }
 
 export class GoogleSheetsConnector implements Connector {
@@ -157,29 +218,31 @@ export class GoogleSheetsConnector implements Connector {
     dateRange: { from: string; to: string };
     config: Record<string, string>;
   }): Promise<ConnectorResult> {
-    requireConfig(input.config);
+    const config = buildEffectiveConfig(input.config);
 
-    const rows = shouldUsePublicCsv(input.config)
-      ? await fetchPublicCsvRows(input.config)
-      : await fetchSheetsApiRows(input.config);
+    requireConfig(config);
+
+    const rows = shouldUsePublicCsv(config)
+      ? await fetchPublicCsvRows(config)
+      : await fetchSheetsApiRows(config);
     const accountRows = filterRowsBySourceAccount({
       rows,
-      config: input.config
+      config
     });
     const filteredRows = filterRowsByDateRange({
       rows: accountRows,
-      dateField: input.config.dateField,
+      dateField: config.dateField,
       dateRange: input.dateRange
     });
     const normalizedRows = normalizeRows({
       clientId: input.clientId,
-      platform: parsePlatform(input.config.platform),
+      platform: parsePlatform(config.platform),
       ingestionMethod: connectorType,
-      sourceAccountId: input.config.sourceAccountId ?? input.accountMappingId,
-      syncRunId: input.config.syncRunId ?? input.accountMappingId,
-      sourceReference: input.config.sourceReference,
-      dateField: input.config.dateField,
-      currency: input.config.currency ?? null,
+      sourceAccountId: config.sourceAccountId ?? input.accountMappingId,
+      syncRunId: config.syncRunId ?? input.accountMappingId,
+      sourceReference: config.sourceReference,
+      dateField: config.dateField,
+      currency: config.currency ?? null,
       rows: filteredRows
     });
 
@@ -187,9 +250,9 @@ export class GoogleSheetsConnector implements Connector {
       rows: normalizedRows,
       rowsImported: normalizedRows.length,
       warnings:
-        input.config.accountIdField && rows.length > 0 && accountRows.length === 0
+        config.accountIdField && rows.length > 0 && accountRows.length === 0
           ? [
-              `No Google Sheets rows matched ${input.config.accountIdField}=${input.config.sourceAccountId}`
+              `No Google Sheets rows matched ${config.accountIdField}=${config.sourceAccountId}`
             ]
           : []
     };

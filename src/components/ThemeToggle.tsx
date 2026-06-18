@@ -68,19 +68,20 @@ export function ThemeToggle() {
   return (
     <button
       aria-label={`Switch to ${nextTheme} theme`}
-      className="grid h-9 w-9 place-items-center rounded-md border border-[var(--border)] bg-[var(--field)] text-[var(--foreground)] transition hover:bg-[var(--hover)]"
+      className="theme-toggle"
       onClick={() => setTheme(nextTheme)}
       title={`Switch to ${nextTheme} theme`}
       type="button"
     >
       <span
         aria-hidden="true"
-        className={
-          theme === "dark"
-            ? "block h-4 w-4 rounded-full border border-[var(--accent-strong)] bg-transparent shadow-[inset_-5px_0_0_var(--accent-strong)]"
-            : "block h-4 w-4 rounded-full border border-[var(--accent)] bg-[var(--accent)]"
-        }
-      />
+        className="theme-toggle-track"
+      >
+        <span
+          className={`theme-toggle-thumb ${theme === "dark" ? "is-dark" : ""}`}
+        />
+      </span>
+      <span className="theme-toggle-copy">{theme === "dark" ? "Dark" : "Light"}</span>
     </button>
   );
 }

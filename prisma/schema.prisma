@@ -96,6 +96,10 @@ model AccountMapping {
   client          Client           @relation(fields: [clientId], references: [id])
   connectors      Connector[]
   syncRuns        SyncRun[]
+
+  @@index([clientId])
+  @@index([clientId, isActive])
+  @@index([platform, sourceAccountId])
 }
 
 model Connector {
@@ -110,10 +114,13 @@ model Connector {
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   accountMapping     AccountMapping        @relation(fields: [accountMappingId], references: [id])
+
+  @@index([accountMappingId])
+  @@index([healthStatus])
 }
 
 model DirectCredential {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   accountMappingId String
   provider         String
   encryptedToken   String
@@ -121,15 +128,15 @@ model DirectCredential {
   expiresAt        DateTime?
   scopes           String[]
   status           String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([accountMappingId])
   @@index([provider, status])
 }
 
 model SyncRun {
-  id               String         @id @default(cuid())
+  id               String          @id @default(cuid())
   clientId         String
   accountMappingId String
   platform         Platform
@@ -137,14 +144,18 @@ model SyncRun {
   dateFrom         DateTime
   dateTo           DateTime
   status           String
-  rowsImported     Int            @default(0)
+  rowsImported     Int             @default(0)
   errorMessage     String?
-  startedAt        DateTime       @default(now())
+  startedAt        DateTime        @default(now())
   finishedAt       DateTime?
-  client           Client         @relation(fields: [clientId], references: [id])
-  accountMapping   AccountMapping @relation(fields: [accountMappingId], references: [id])
+  client           Client          @relation(fields: [clientId], references: [id])
+  accountMapping   AccountMapping  @relation(fields: [accountMappingId], references: [id])
   rawRows          RawSourceRow[]
   metricRows       MetricRow[]
+
+  @@index([clientId, startedAt])
+  @@index([clientId, status, startedAt])
+  @@index([accountMappingId, status])
 }
 
 model RawSourceRow {
@@ -154,6 +165,9 @@ model RawSourceRow {
   sourcePayload   Json
   importedAt      DateTime @default(now())
   syncRun         SyncRun  @relation(fields: [syncRunId], references: [id])
+
+  @@index([syncRunId])
+  @@index([sourceReference])
 }
 
 model MetricRow {
@@ -173,6 +187,14 @@ model MetricRow {
   importedAt        DateTime        @default(now())
   client            Client          @relation(fields: [clientId], references: [id])
   syncRun           SyncRun         @relation(fields: [syncRunId], references: [id])
+
+  @@index([clientId, occurredOn])
+  @@index([clientId, platform, sourceAccountId, occurredOn])
+  @@index([clientId, metricName, occurredOn])
+  @@index([syncRunId])
+  @@index([metricName])
+  @@index([occurredOn])
+  @@index([importedAt])
 }
 
 model ClientGoal {
@@ -183,6 +205,8 @@ model ClientGoal {
   targetValue Decimal
   createdAt   DateTime  @default(now())
   client      Client    @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
 }
 
 model ClientBudget {
@@ -194,6 +218,9 @@ model ClientBudget {
   startsOn      DateTime
   endsOn        DateTime?
   client        Client    @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
+  @@index([clientId, startsOn, endsOn])
 }
 
 model Report {
@@ -216,6 +243,9 @@ model Report {
   approvals         ApprovalEvent[]
   deliveries        DeliveryLog[]
   emailDrafts       EmailDraft[]
+
+  @@index([clientId, createdAt])
+  @@index([status, createdAt])
 }
 
 model ReportVersion {
@@ -231,6 +261,8 @@ model ReportVersion {
   insights        Insight[]
   anomalies       Anomaly[]
   qualityScores   DataQualityScore[]
+
+  @@index([reportId, versionNumber])
 }
 
 model Insight {
@@ -242,6 +274,8 @@ model Insight {
   isEdited        Boolean       @default(false)
   createdAt       DateTime      @default(now())
   reportVersion   ReportVersion @relation(fields: [reportVersionId], references: [id])
+
+  @@index([reportVersionId])
 }
 
 model Anomaly {
@@ -254,6 +288,9 @@ model Anomaly {
   dismissedAt     DateTime?
   comment         String?
   reportVersion   ReportVersion @relation(fields: [reportVersionId], references: [id])
+
+  @@index([reportVersionId])
+  @@index([severity, clientSafe])
 }
 
 model DataQualityScore {
@@ -264,6 +301,8 @@ model DataQualityScore {
   factors         Json
   createdAt       DateTime      @default(now())
   reportVersion   ReportVersion @relation(fields: [reportVersionId], references: [id])
+
+  @@index([reportVersionId])
 }
 
 model ApprovalEvent {
@@ -276,10 +315,13 @@ model ApprovalEvent {
   createdAt DateTime @default(now())
   report    Report   @relation(fields: [reportId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([reportId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model DeliveryLog {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   reportId     String
   method       String
   recipient    String
@@ -287,8 +329,11 @@ model DeliveryLog {
   providerId   String?
   errorMessage String?
   sentAt       DateTime?
-  createdAt    DateTime @default(now())
-  report       Report   @relation(fields: [reportId], references: [id])
+  createdAt    DateTime  @default(now())
+  report       Report    @relation(fields: [reportId], references: [id])
+
+  @@index([reportId, createdAt])
+  @@index([status, createdAt])
 }
 
 model EmailDraft {
@@ -299,4 +344,6 @@ model EmailDraft {
   isEdited  Boolean  @default(false)
   createdAt DateTime @default(now())
   report    Report   @relation(fields: [reportId], references: [id])
+
+  @@index([reportId, createdAt])
 }

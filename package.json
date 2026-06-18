@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "sync:scheduled": "tsx scripts/run-scheduled-sync.ts"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^8.3.1",
@@ -25,6 +26,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "recharts": "^3.8.1",
+    "three": "^0.184.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -37,6 +39,7 @@
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.184.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.7",
     "jsdom": "^29.1.1",

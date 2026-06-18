@@ -11,12 +11,10 @@ const platformSchema = z.enum([
   "manual"
 ]);
 const ingestionMethodSchema = z.enum([
-  "direct_api",
   "platform_script",
   "google_sheets",
   "bigquery",
-  "csv_upload",
-  "third_party_connector"
+  "csv_upload"
 ]);
 const mappingCreateSchema = z.object({
   platform: platformSchema,

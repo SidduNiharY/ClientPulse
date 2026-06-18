@@ -13,6 +13,9 @@
 /playwright-report
 /test-results
 
+# generated codebase analysis
+/graphify-out/
+
 # typescript
 *.tsbuildinfo
 

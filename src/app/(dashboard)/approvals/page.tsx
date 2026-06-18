@@ -28,14 +28,33 @@ async function getApprovalRows(): Promise<ApprovalReportRow[]> {
   try {
     const reports = await db.report.findMany({
       orderBy: { createdAt: "desc" },
-      include: {
-        client: true,
+      take: 200,
+      select: {
+        id: true,
+        status: true,
+        dateFrom: true,
+        dateTo: true,
+        revenueSource: true,
+        createdAt: true,
+        client: {
+          select: {
+            name: true
+          }
+        },
         versions: {
           orderBy: { versionNumber: "desc" },
           take: 1,
-          include: {
-            anomalies: true,
-            qualityScores: true
+          select: {
+            anomalies: {
+              select: {
+                severity: true
+              }
+            },
+            qualityScores: {
+              select: {
+                rating: true
+              }
+            }
           }
         }
       }

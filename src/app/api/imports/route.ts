@@ -1,25 +1,6 @@
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { BigQueryConnector } from "@/server/connectors/bigQueryConnector";
-import { CsvConnector } from "@/server/connectors/csvConnector";
-import { GA4ApiConnector } from "@/server/connectors/ga4ApiConnector";
-import { GoogleAdsApiConnector } from "@/server/connectors/googleAdsApiConnector";
-import { MetaApiConnector } from "@/server/connectors/metaApiConnector";
-import { NeedsAuthorizationConnector } from "@/server/connectors/directStubs";
-import { ShopifyApiConnector } from "@/server/connectors/shopifyApiConnector";
-import { GoogleSheetsConnector } from "@/server/connectors/googleSheetsConnector";
-import { decryptCredentialPayload } from "@/server/connections/credentialCrypto";
-import {
-  toDirectConnectorConfig,
-  type OAuthProvider
-} from "@/server/connections/oauth";
-import type {
-  Connector,
-  IngestionMethod,
-  Platform
-} from "@/server/connectors/types";
-import { db } from "@/server/db/client";
+import { ImportRunError, runImport } from "@/server/imports/runImport";
 
 const importRequestSchema = z.object({
   clientId: z.string().min(1),
@@ -29,87 +10,8 @@ const importRequestSchema = z.object({
     to: z.string().min(1)
   }),
   connectorConfig: z.record(z.string(), z.string()).default({}),
-  importMode: z.enum(["append", "replace"]).default("append")
+  importMode: z.enum(["append", "replace"]).optional()
 });
-
-function createConnector(input: {
-  ingestionMethod: IngestionMethod;
-  platform: Platform;
-}): Connector {
-  if (input.ingestionMethod === "direct_api") {
-    if (input.platform === "google_ads") return new GoogleAdsApiConnector();
-    if (input.platform === "meta_ads") return new MetaApiConnector();
-    if (input.platform === "ga4") return new GA4ApiConnector();
-    if (input.platform === "shopify") return new ShopifyApiConnector();
-  }
-
-  if (
-    input.ingestionMethod === "csv_upload" ||
-    input.ingestionMethod === "platform_script"
-  ) {
-    return new CsvConnector();
-  }
-
-  if (input.ingestionMethod === "google_sheets") {
-    return new GoogleSheetsConnector();
-  }
-
-  if (input.ingestionMethod === "bigquery") {
-    return new BigQueryConnector();
-  }
-
-  return new NeedsAuthorizationConnector(input.ingestionMethod);
-}
-
-function jsonConfigToRecord(value: Prisma.JsonValue): Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, configValue]) => [key, String(configValue)])
-  );
-}
-
-async function updateConnectorHealth(input: {
-  accountMappingId: string;
-  connectorType: string;
-  healthStatus: "healthy" | "failed";
-  rowsImported?: number;
-  latestError?: string;
-}) {
-  const data =
-    input.healthStatus === "healthy"
-      ? {
-          healthStatus: input.healthStatus,
-          lastSuccessfulSync: new Date(),
-          latestError: null,
-          rowsImported: input.rowsImported ?? 0
-        }
-      : {
-          healthStatus: input.healthStatus,
-          lastFailedSync: new Date(),
-          latestError: input.latestError ?? "Import failed"
-        };
-
-  const updated = await db.connector.updateMany({
-    where: {
-      accountMappingId: input.accountMappingId,
-      connectorType: input.connectorType
-    },
-    data
-  });
-
-  if (updated.count === 0) {
-    await db.connector.create({
-      data: {
-        accountMappingId: input.accountMappingId,
-        connectorType: input.connectorType,
-        ...data
-      }
-    });
-  }
-}
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -122,175 +24,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const input = parsed.data;
-  let syncRunId: string | null = null;
-  let connectorType: IngestionMethod | null = null;
-
   try {
-    const accountMapping = await db.accountMapping.findUniqueOrThrow({
-      where: { id: input.accountMappingId },
-      select: {
-        id: true,
-        platform: true,
-        ingestionMethod: true,
-        sourceAccountId: true,
-        config: true
-      }
-    });
-    const syncRun = await db.syncRun.create({
-      data: {
-        clientId: input.clientId,
-        accountMappingId: input.accountMappingId,
-        platform: accountMapping.platform,
-        ingestionMethod: accountMapping.ingestionMethod,
-        dateFrom: new Date(input.dateRange.from),
-        dateTo: new Date(input.dateRange.to),
-        status: "running"
-      }
-    });
-    syncRunId = syncRun.id;
-    connectorType = accountMapping.ingestionMethod;
-
-    const connector = createConnector({
-      ingestionMethod: accountMapping.ingestionMethod,
-      platform: accountMapping.platform
-    });
-    const storedDirectConfig =
-      accountMapping.ingestionMethod === "direct_api"
-        ? await loadStoredDirectConnectorConfig({
-            accountMappingId: input.accountMappingId,
-            provider: accountMapping.platform as OAuthProvider
-          })
-        : {};
-    const connectorConfig = {
-      ...jsonConfigToRecord(accountMapping.config),
-      ...storedDirectConfig,
-      ...input.connectorConfig,
-      platform: accountMapping.platform,
-      sourceAccountId: accountMapping.sourceAccountId,
-      syncRunId: syncRun.id
-    };
-    const result = await connector.fetch({
-      clientId: input.clientId,
-      accountMappingId: input.accountMappingId,
-      dateRange: input.dateRange,
-      config: connectorConfig
-    });
-    const rawRows = result.rows.map((row) => ({
-      syncRunId: syncRun.id,
-      sourceReference: row.sourceTrace.sourceReference,
-      sourcePayload: row as unknown as Prisma.InputJsonObject
-    }));
-    const metricRows = result.rows.map((row) => ({
-      clientId: row.clientId,
-      syncRunId: syncRun.id,
-      platform: row.platform,
-      ingestionMethod: row.ingestionMethod,
-      sourceAccountId: row.sourceAccountId,
-      metricName: row.metricName,
-      metricValue: row.metricValue,
-      currency: row.currency,
-      occurredOn: new Date(row.occurredOn),
-      dimensions: row.dimensions,
-      originalFieldName: row.sourceTrace.originalFieldName,
-      sourceReference: row.sourceTrace.sourceReference,
-      importedAt: new Date(row.sourceTrace.importedAt)
-    }));
-    const replaceExistingMetrics =
-      input.importMode === "replace"
-        ? db.metricRow.deleteMany({
-            where: {
-              clientId: input.clientId,
-              platform: accountMapping.platform,
-              sourceAccountId: accountMapping.sourceAccountId,
-              occurredOn: {
-                gte: new Date(input.dateRange.from),
-                lte: new Date(input.dateRange.to)
-              }
-            }
-          })
-        : null;
-
-    await db.$transaction([
-      ...(replaceExistingMetrics ? [replaceExistingMetrics] : []),
-      db.rawSourceRow.createMany({
-        data: rawRows
-      }),
-      db.metricRow.createMany({
-        data: metricRows
-      }),
-      db.syncRun.update({
-        where: { id: syncRun.id },
-        data: {
-          status: "succeeded",
-          rowsImported: result.rowsImported,
-          finishedAt: new Date()
-        }
-      })
-    ]);
-
-    await updateConnectorHealth({
-      accountMappingId: input.accountMappingId,
-      connectorType: accountMapping.ingestionMethod,
-      healthStatus: "healthy",
-      rowsImported: result.rowsImported
-    });
-
-    return NextResponse.json({
-      syncRunId: syncRun.id,
-      status: "succeeded",
-      rowsImported: result.rowsImported,
-      warnings: result.warnings
-    });
+    return NextResponse.json(await runImport(parsed.data));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Import failed";
-
-    if (syncRunId) {
-      await db.syncRun.update({
-        where: { id: syncRunId },
-        data: {
-          status: "failed",
-          errorMessage: message,
-          finishedAt: new Date()
-        }
-      });
-      await updateConnectorHealth({
-        accountMappingId: input.accountMappingId,
-        connectorType: connectorType ?? "unknown",
-        healthStatus: "failed",
-        latestError: message
-      });
+    if (error instanceof ImportRunError) {
+      return NextResponse.json(error.result, { status: 500 });
     }
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Import failed",
+        healthStatus: "failed",
+        metricsAdded: 0,
+        metricsReplaced: 0,
+        rowsImported: 0,
+        status: "failed",
+        syncRunId: null,
+        warnings: []
+      },
+      { status: 500 }
+    );
   }
-}
-
-async function loadStoredDirectConnectorConfig(input: {
-  accountMappingId: string;
-  provider: OAuthProvider;
-}) {
-  const credential = await db.directCredential.findFirst({
-    where: {
-      accountMappingId: input.accountMappingId,
-      provider: input.provider,
-      status: "authorized"
-    },
-    orderBy: { updatedAt: "desc" }
-  });
-
-  if (!credential) {
-    return {};
-  }
-
-  const secret = process.env.DIRECT_CREDENTIAL_ENCRYPTION_KEY;
-
-  if (!secret) {
-    throw new Error("DIRECT_CREDENTIAL_ENCRYPTION_KEY is required");
-  }
-
-  return toDirectConnectorConfig(
-    input.provider,
-    decryptCredentialPayload(credential.encryptedToken, secret)
-  );
 }

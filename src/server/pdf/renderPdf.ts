@@ -7,14 +7,17 @@ export async function renderPdfFromHtml(html: string): Promise<Buffer> {
       viewport: { width: 1280, height: 1600 }
     });
     await page.setContent(html, { waitUntil: "networkidle" });
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
     return await page.pdf({
-      format: "A4",
+      preferCSSPageSize: true,
       printBackground: true,
       margin: {
-        top: "16mm",
-        right: "14mm",
-        bottom: "16mm",
-        left: "14mm"
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
       }
     });
   } finally {

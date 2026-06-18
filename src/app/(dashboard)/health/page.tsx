@@ -1,14 +1,22 @@
 import { db } from "@/server/db/client";
+import { HealthActionControls } from "@/components/HealthActionControls";
 
 export const dynamic = "force-dynamic";
 
 type HealthRow = {
   id: string;
+  accountMappingId: string;
+  connectorId: string | null;
   clientName: string;
   platform: string;
   connectionType: string;
+  fallbackMethod: string | null;
   lastSuccessfulSync: Date | null;
   lastFailedSync: Date | null;
+  lastFailedRunId: string | null;
+  lastFailedRunStartedAt: Date | null;
+  lastFailedRunFinishedAt: Date | null;
+  lastFailedRunError: string | null;
   healthStatus: string;
   rowsImported: number;
   latestError: string | null;
@@ -21,7 +29,18 @@ async function getHealthRows(): Promise<HealthRow[]> {
       include: {
         accountMappings: {
           include: {
-            connectors: true
+            connectors: true,
+            syncRuns: {
+              where: { status: "failed" },
+              orderBy: { startedAt: "desc" },
+              take: 1,
+              select: {
+                id: true,
+                startedAt: true,
+                finishedAt: true,
+                errorMessage: true
+              }
+            }
           }
         }
       }
@@ -33,11 +52,18 @@ async function getHealthRows(): Promise<HealthRow[]> {
           return [
             {
               id: mapping.id,
+              accountMappingId: mapping.id,
+              connectorId: null,
               clientName: client.name,
               platform: mapping.platform,
               connectionType: mapping.ingestionMethod,
+              fallbackMethod: mapping.fallbackMethod,
               lastSuccessfulSync: null,
               lastFailedSync: null,
+              lastFailedRunId: mapping.syncRuns[0]?.id ?? null,
+              lastFailedRunStartedAt: mapping.syncRuns[0]?.startedAt ?? null,
+              lastFailedRunFinishedAt: mapping.syncRuns[0]?.finishedAt ?? null,
+              lastFailedRunError: mapping.syncRuns[0]?.errorMessage ?? null,
               healthStatus: "not_connected",
               rowsImported: 0,
               latestError: null
@@ -47,11 +73,18 @@ async function getHealthRows(): Promise<HealthRow[]> {
 
         return mapping.connectors.map((connector) => ({
           id: connector.id,
+          accountMappingId: mapping.id,
+          connectorId: connector.id,
           clientName: client.name,
           platform: mapping.platform,
           connectionType: connector.connectorType,
+          fallbackMethod: mapping.fallbackMethod,
           lastSuccessfulSync: connector.lastSuccessfulSync,
           lastFailedSync: connector.lastFailedSync,
+          lastFailedRunId: mapping.syncRuns[0]?.id ?? null,
+          lastFailedRunStartedAt: mapping.syncRuns[0]?.startedAt ?? null,
+          lastFailedRunFinishedAt: mapping.syncRuns[0]?.finishedAt ?? null,
+          lastFailedRunError: mapping.syncRuns[0]?.errorMessage ?? null,
           healthStatus: connector.healthStatus,
           rowsImported: connector.rowsImported,
           latestError: connector.latestError
@@ -95,6 +128,60 @@ function getAccessStatus(healthStatus: string) {
   return "Ready";
 }
 
+function ErrorDetails({ row }: { row: HealthRow }) {
+  const primaryError = row.latestError ?? row.lastFailedRunError;
+
+  if (!primaryError && !row.lastFailedRunId && !row.lastFailedSync) {
+    return <span>No error</span>;
+  }
+
+  return (
+    <details className="max-w-[360px]">
+      <summary className="cursor-pointer text-sm font-medium">
+        {primaryError ?? "Failure details"}
+      </summary>
+      <dl className="mt-2 space-y-1 text-xs text-[var(--muted)]">
+        <div>
+          <dt className="inline font-medium text-[var(--foreground)]">
+            Connector error:{" "}
+          </dt>
+          <dd className="inline">{row.latestError ?? "None"}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-[var(--foreground)]">
+            Last failed sync:{" "}
+          </dt>
+          <dd className="inline">{formatDate(row.lastFailedSync)}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-[var(--foreground)]">
+            Failed run:{" "}
+          </dt>
+          <dd className="inline">{row.lastFailedRunId ?? "None"}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-[var(--foreground)]">
+            Run started:{" "}
+          </dt>
+          <dd className="inline">{formatDate(row.lastFailedRunStartedAt)}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-[var(--foreground)]">
+            Run finished:{" "}
+          </dt>
+          <dd className="inline">{formatDate(row.lastFailedRunFinishedAt)}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-[var(--foreground)]">
+            Run error:{" "}
+          </dt>
+          <dd className="inline">{row.lastFailedRunError ?? "None"}</dd>
+        </div>
+      </dl>
+    </details>
+  );
+}
+
 export default async function HealthPage() {
   const healthRows = await getHealthRows();
 
@@ -119,15 +206,14 @@ export default async function HealthPage() {
               <th className="px-4 py-3 font-semibold">Data freshness status</th>
               <th className="px-4 py-3 font-semibold">Token/access status</th>
               <th className="px-4 py-3 font-semibold">Rows imported</th>
-              <th className="px-4 py-3 font-semibold">Latest error message</th>
-              <th className="px-4 py-3 font-semibold">Retry action</th>
-              <th className="px-4 py-3 font-semibold">Switch fallback action</th>
+              <th className="px-4 py-3 font-semibold">Error details</th>
+              <th className="px-4 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {healthRows.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-[var(--muted)]" colSpan={11}>
+                <td className="px-4 py-6 text-[var(--muted)]" colSpan={10}>
                   No connector health records are available yet.
                 </td>
               </tr>
@@ -152,17 +238,14 @@ export default async function HealthPage() {
                   </td>
                   <td className="px-4 py-3">{row.rowsImported}</td>
                   <td className="px-4 py-3">
-                    {row.latestError ?? "No error"}
+                    <ErrorDetails row={row} />
                   </td>
                   <td className="px-4 py-3">
-                    <button className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium">
-                      Retry
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium">
-                      Switch fallback
-                    </button>
+                    <HealthActionControls
+                      accountMappingId={row.accountMappingId}
+                      canSwitchFallback={Boolean(row.fallbackMethod)}
+                      connectorId={row.connectorId}
+                    />
                   </td>
                 </tr>
               ))

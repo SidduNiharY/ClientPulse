@@ -201,4 +201,130 @@ describe("GoogleSheetsConnector", () => {
       ])
     );
   });
+
+  it("normalizes standard Meta script rows from Google Sheets", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        new Response(
+          [
+            [
+              "date",
+              "campaign",
+              "impressions",
+              "clicks",
+              "spend",
+              "purchases",
+              "purchase_value",
+              "leads"
+            ].join(","),
+            [
+              "2026-06-02",
+              "Prospecting",
+              "1000",
+              "80",
+              "120.50",
+              "7",
+              "650",
+              "12"
+            ].join(",")
+          ].join("\n"),
+          {
+            status: 200,
+            headers: { "Content-Type": "text/csv" }
+          }
+        )
+      )
+    );
+
+    const result = await new GoogleSheetsConnector().fetch({
+      clientId: "client_1",
+      accountMappingId: "mapping_1",
+      dateRange: { from: "2026-06-01", to: "2026-06-07" },
+      config: {
+        spreadsheetId: "sheet_1",
+        range: "Meta Ads!A:H",
+        dateField: "date",
+        sourceReference: "meta-script-sheet:sheet_1",
+        platform: "meta_ads",
+        sourceAccountId: "act_123",
+        syncRunId: "sync_1",
+        currency: "INR",
+        publicCsv: "true"
+      }
+    });
+
+    expect(result.rowsImported).toBe(6);
+    expect(result.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          metricName: "spend",
+          metricValue: 120.5,
+          dimensions: expect.objectContaining({ campaign: "Prospecting" })
+        }),
+        expect.objectContaining({
+          metricName: "leads",
+          metricValue: 12,
+          sourceTrace: expect.objectContaining({
+            originalFieldName: "leads",
+            sourceReference: "meta-script-sheet:sheet_1"
+          })
+        })
+      ])
+    );
+  });
+
+  it("normalizes standard Shopify script rows from Google Sheets", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        new Response(
+          [
+            ["date", "channel", "total_orders", "total_revenue"].join(","),
+            ["2026-06-02", "Online Store", "17", "42500"].join(",")
+          ].join("\n"),
+          {
+            status: 200,
+            headers: { "Content-Type": "text/csv" }
+          }
+        )
+      )
+    );
+
+    const result = await new GoogleSheetsConnector().fetch({
+      clientId: "client_1",
+      accountMappingId: "mapping_1",
+      dateRange: { from: "2026-06-01", to: "2026-06-07" },
+      config: {
+        spreadsheetId: "sheet_1",
+        range: "Shopify!A:D",
+        dateField: "date",
+        sourceReference: "shopify-script-sheet:sheet_1",
+        platform: "shopify",
+        sourceAccountId: "store.myshopify.com",
+        syncRunId: "sync_1",
+        currency: "INR",
+        publicCsv: "true"
+      }
+    });
+
+    expect(result.rowsImported).toBe(2);
+    expect(result.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          metricName: "orders",
+          metricValue: 17,
+          dimensions: expect.objectContaining({ channel: "Online Store" })
+        }),
+        expect.objectContaining({
+          metricName: "revenue",
+          metricValue: 42500,
+          sourceTrace: expect.objectContaining({
+            originalFieldName: "total_revenue",
+            sourceReference: "shopify-script-sheet:sheet_1"
+          })
+        })
+      ])
+    );
+  });
 });

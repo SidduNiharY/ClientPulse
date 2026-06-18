@@ -1,5 +1,5 @@
 import { generateInsights } from "@/server/reporting/insights";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 describe("insight drafts", () => {
   it("recommends budget allocation review when spend grows faster than revenue", async () => {
@@ -37,6 +37,90 @@ describe("insight drafts", () => {
       },
       goals: {},
       anomalies: []
+    });
+
+    expect(insights).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("Review budget allocation")
+        })
+      ])
+    );
+  });
+
+  it("passes only reporting context to agent-assisted providers", async () => {
+    const agent = vi.fn(async (context: unknown) => {
+      void context;
+
+      return [
+        {
+          insightType: "executive_summary",
+          text: "Agent summary from reporting context.",
+          sourceMetric: "roas"
+        }
+      ];
+    });
+
+    const insights = await generateInsights({
+      provider: "agent_assisted",
+      agent,
+      metrics: {
+        currentSpend: 150000,
+        currentRevenue: 300000,
+        currentRoas: 2
+      },
+      goals: {
+        roas: 1.8
+      },
+      anomalies: [
+        {
+          anomalyType: "spend_spike",
+          message: "Spend increased by at least 50%",
+          clientSafe: true
+        }
+      ],
+      freshness: {
+        latestImportedAt: "2026-06-08T10:00:00.000Z",
+        stalePlatforms: [],
+        checkedAt: "2026-06-08T12:00:00.000Z"
+      }
+    });
+
+    expect(agent).toHaveBeenCalledTimes(1);
+    const agentContext = agent.mock.calls[0][0] as Record<string, unknown>;
+
+    expect(Object.keys(agentContext).sort()).toEqual([
+      "anomalies",
+      "freshness",
+      "goals",
+      "metrics"
+    ]);
+    expect(insights).toEqual([
+      expect.objectContaining({
+        text: "Agent summary from reporting context."
+      })
+    ]);
+  });
+
+  it("falls agent-assisted insight failures back to rule-based drafts", async () => {
+    const insights = await generateInsights({
+      provider: "agent_assisted",
+      agent: async () => {
+        throw new Error("agent unavailable");
+      },
+      metrics: {
+        currentSpend: 150000,
+        previousSpend: 100000,
+        currentRevenue: 110000,
+        previousRevenue: 100000
+      },
+      goals: {},
+      anomalies: [],
+      freshness: {
+        latestImportedAt: "2026-06-08T10:00:00.000Z",
+        stalePlatforms: [],
+        checkedAt: "2026-06-08T12:00:00.000Z"
+      }
     });
 
     expect(insights).toEqual(

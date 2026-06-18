@@ -1,13 +1,19 @@
-export type InsightProvider = "rule_based" | "external_ai";
+export type InsightProvider = "rule_based" | "external_ai" | "agent_assisted";
 
 export type InsightGenerationInput = {
   metrics: Record<string, number | null>;
   goals: Record<string, number>;
   anomalies: { anomalyType: string; message: string; clientSafe: boolean }[];
+  freshness?: {
+    latestImportedAt: string | null;
+    stalePlatforms: string[];
+    checkedAt: string;
+  };
 };
 
 export type InsightInput = InsightGenerationInput & {
   provider: InsightProvider;
+  agent?: (input: AgentInsightContext) => Promise<InsightDraft[]>;
 };
 
 export type InsightDraft = {
@@ -15,6 +21,20 @@ export type InsightDraft = {
   text: string;
   sourceMetric: string;
 };
+
+export type AgentInsightContext = Pick<
+  InsightGenerationInput,
+  "metrics" | "goals" | "anomalies" | "freshness"
+>;
+
+const allowedInsightTypes = new Set([
+  "executive_summary",
+  "what_improved",
+  "what_declined",
+  "likely_reasons",
+  "recommended_actions",
+  "internal_notes"
+]);
 
 export function generateInsightDrafts(
   input: InsightGenerationInput
@@ -190,7 +210,145 @@ export async function generateInsights(
     return generateRuleBasedInsights(input);
   }
 
+  if (input.provider === "external_ai") {
+    const agent = input.agent ?? createExternalAiInsightAgent();
+
+    if (agent) {
+      try {
+        const drafts = await agent({
+          metrics: input.metrics,
+          goals: input.goals,
+          anomalies: input.anomalies,
+          freshness: input.freshness
+        });
+
+        if (drafts.length > 0) {
+          return drafts;
+        }
+      } catch {
+        return generateRuleBasedInsights(input);
+      }
+    }
+
+    return generateRuleBasedInsights(input);
+  }
+
+  if (input.provider === "agent_assisted" && input.agent) {
+    try {
+      const drafts = await input.agent({
+        metrics: input.metrics,
+        goals: input.goals,
+        anomalies: input.anomalies,
+        freshness: input.freshness
+      });
+
+      if (drafts.length > 0) {
+        return drafts;
+      }
+    } catch {
+      return generateRuleBasedInsights(input);
+    }
+  }
+
   return generateRuleBasedInsights(input);
+}
+
+function createExternalAiInsightAgent() {
+  const apiKey = process.env.AI_API_KEY;
+  const provider = process.env.AI_PROVIDER;
+
+  if (!apiKey || !provider) {
+    return null;
+  }
+
+  return async (context: AgentInsightContext) => {
+    const baseUrl =
+      process.env.AI_BASE_URL ??
+      (provider === "openai" ? "https://api.openai.com/v1" : "");
+    const model = process.env.AI_MODEL ?? "gpt-4o-mini";
+
+    if (!baseUrl) {
+      return [];
+    }
+
+    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Write concise, client-safe marketing report insights. Return JSON only as {\"insights\":[{\"insightType\":\"executive_summary|what_improved|what_declined|likely_reasons|recommended_actions|internal_notes\",\"text\":\"...\",\"sourceMetric\":\"...\"}]}. Do not include markdown."
+          },
+          {
+            role: "user",
+            content: JSON.stringify(context)
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2
+      })
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = payload.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return [];
+    }
+
+    return sanitizeExternalInsights(JSON.parse(content));
+  };
+}
+
+function sanitizeExternalInsights(value: unknown): InsightDraft[] {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as { insights?: unknown })
+      : {};
+  const drafts = Array.isArray(value)
+    ? value
+    : Array.isArray(record.insights)
+      ? record.insights
+      : [];
+
+  return drafts
+    .flatMap((draft) => {
+      if (!draft || typeof draft !== "object") {
+        return [];
+      }
+
+      const candidate = draft as Partial<InsightDraft>;
+
+      if (
+        !candidate.insightType ||
+        !allowedInsightTypes.has(candidate.insightType) ||
+        !candidate.text ||
+        !candidate.sourceMetric
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          insightType: candidate.insightType,
+          sourceMetric: String(candidate.sourceMetric).slice(0, 80),
+          text: String(candidate.text).replace(/\s+/g, " ").trim().slice(0, 320)
+        }
+      ];
+    })
+    .slice(0, 8);
 }
 
 function metric(

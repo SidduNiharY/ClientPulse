@@ -76,6 +76,58 @@ export function detectAnomalies(input: {
   }
 
   if (
+    input.previous.conversions > 0 &&
+    input.current.conversions / input.previous.conversions <= 0.7
+  ) {
+    anomalies.push({
+      anomalyType: "conversion_drop",
+      severity: "warning",
+      message:
+        "Conversions dropped by at least 30% compared with the previous period",
+      clientSafe: true
+    });
+  }
+
+  if (
+    input.previous.impressions > 0 &&
+    input.current.impressions / input.previous.impressions <= 0.7
+  ) {
+    anomalies.push({
+      anomalyType: "impression_drop",
+      severity: "warning",
+      message:
+        "Impressions dropped by at least 30% compared with the previous period",
+      clientSafe: true
+    });
+  }
+
+  if (
+    input.previous.cpc &&
+    input.current.cpc &&
+    input.current.cpc / input.previous.cpc >= 1.5
+  ) {
+    anomalies.push({
+      anomalyType: "cpc_spike",
+      severity: "warning",
+      message: "CPC increased by at least 50% compared with the previous period",
+      clientSafe: true
+    });
+  }
+
+  if (
+    input.previous.cpl &&
+    input.current.cpl &&
+    input.current.cpl / input.previous.cpl >= 1.5
+  ) {
+    anomalies.push({
+      anomalyType: "cpl_spike",
+      severity: "warning",
+      message: "CPL increased by at least 50% compared with the previous period",
+      clientSafe: true
+    });
+  }
+
+  if (
     input.previous.roas &&
     input.current.roas &&
     input.current.roas / input.previous.roas <= 0.7

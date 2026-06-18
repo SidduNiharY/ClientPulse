@@ -30,9 +30,9 @@ var CONFIG = {
   accountLabelName: "",
   maxManagerAccounts: 50,
 
-  // Use CUSTOM for a one-time historical backfill. After the database backfill,
-  // switch back to LOOKBACK for scheduled daily/weekly updates.
-  dateMode: "CUSTOM",
+  // Use LOOKBACK for scheduled daily/weekly updates. Switch to CUSTOM only for
+  // a one-time historical backfill.
+  dateMode: "LOOKBACK",
   customStartDate: "2020-01-01",
   customEndDate: "",
 

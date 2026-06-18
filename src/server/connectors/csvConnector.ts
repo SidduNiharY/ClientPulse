@@ -25,6 +25,10 @@ function parsePlatform(value: string | undefined): Platform {
   throw new Error("CSV import requires a valid platform");
 }
 
+function parseIngestionMethod(value: string | undefined): IngestionMethod {
+  return value === "platform_script" ? "platform_script" : connectorType;
+}
+
 export class CsvConnector implements Connector {
   readonly connectorType = connectorType;
 
@@ -57,7 +61,7 @@ export class CsvConnector implements Connector {
     const normalizedRows = normalizeRows({
       clientId: input.clientId,
       platform: parsePlatform(input.config.platform),
-      ingestionMethod: connectorType,
+      ingestionMethod: parseIngestionMethod(input.config.ingestionMethod),
       sourceAccountId: input.config.sourceAccountId ?? input.accountMappingId,
       syncRunId: input.config.syncRunId ?? input.accountMappingId,
       sourceReference: input.config.sourceReference ?? "uploaded.csv",

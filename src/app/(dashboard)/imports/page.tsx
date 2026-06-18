@@ -98,7 +98,14 @@ async function getImportedDataSnapshot(): Promise<ImportedDataSnapshot> {
         db.metricRow.findMany({
           orderBy: { importedAt: "desc" },
           take: 20,
-          include: {
+          select: {
+            id: true,
+            platform: true,
+            sourceAccountId: true,
+            metricName: true,
+            metricValue: true,
+            occurredOn: true,
+            dimensions: true,
             client: {
               select: {
                 name: true
@@ -229,9 +236,15 @@ export default async function ImportsPage() {
     <section className="space-y-8">
       <div className="space-y-2">
         <p className="text-sm font-medium uppercase tracking-normal text-[var(--accent)]">
-          Data Imports
+          Script-backed imports
         </p>
-        <h1 className="text-3xl font-semibold tracking-normal">Import runs</h1>
+        <h1 className="text-3xl font-semibold tracking-normal">
+          Source import desk
+        </h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Run Google Sheets and platform script imports, replace matching date
+          windows by default, and review the metrics written by each sync.
+        </p>
       </div>
 
       <ImportForm />

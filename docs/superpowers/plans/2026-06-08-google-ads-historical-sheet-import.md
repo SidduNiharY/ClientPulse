@@ -17,7 +17,7 @@
 - Review: `src/server/normalization/normalizeRows.ts`
 - Review: `src/server/connectors/googleSheetsConnector.ts`
 
-- [ ] **Step 1: Confirm required columns exist in the Sheet**
+- [x] **Step 1: Confirm required columns exist in the Sheet**
 
 The `Data Extraction Spreadsheet` tab must include these headers exactly:
 
@@ -34,7 +34,9 @@ Conversions
 Conversion value
 ```
 
-- [ ] **Step 2: Confirm import config**
+Confirmed against the live public CSV export on 2026-06-10.
+
+- [x] **Step 2: Confirm import config**
 
 Use this config for each Google Ads mapping:
 
@@ -51,13 +53,16 @@ Use this config for each Google Ads mapping:
 
 Expected: the connector filters each client to its own `Account ID` before normalizing rows.
 
+Confirmed in `GoogleSheetsConnector`: rows are filtered by `accountIdField`
+against the mapping `sourceAccountId` before date filtering and normalization.
+
 ### Task 2: Add Idempotent Replace Import
 
 **Files:**
 - Modify: `src/app/api/imports/route.ts`
 - Test: `tests/unit/googleSheetsConnector.test.ts`
 
-- [ ] **Step 1: Extend import payload schema**
+- [x] **Step 1: Extend import payload schema**
 
 Add optional `importMode`:
 
@@ -74,7 +79,7 @@ const importRequestSchema = z.object({
 });
 ```
 
-- [ ] **Step 2: Delete existing metric rows only when replacing**
+- [x] **Step 2: Delete existing metric rows only when replacing**
 
 Before `createMany`, add a delete operation to the transaction only when `input.importMode === "replace"`:
 
@@ -108,13 +113,16 @@ await db.$transaction([
 
 Expected: historical backfill can be rerun without duplicate report metrics.
 
+Implementation note: large imports are written in bounded batches inside the
+transaction so historical ranges do not send one oversized `createMany` payload.
+
 ### Task 3: Update Import Trigger Script
 
 **Files:**
 - Modify: `scripts/import-google-ads-sheet.mjs`
 - Create: `scripts/import-google-ads-sheet-all-mappings.mjs`
 
-- [ ] **Step 1: Add replace mode to the request body**
+- [x] **Step 1: Add replace mode to the request body**
 
 ```js
 const payload = {
@@ -139,7 +147,7 @@ const payload = {
 
 Expected: the default command is safe for historical backfills.
 
-- [ ] **Step 2: Add all-mappings import command**
+- [x] **Step 2: Add all-mappings import command**
 
 Create `scripts/import-google-ads-sheet-all-mappings.mjs` so the app can import every Google Ads mapping using `google_sheets` without manually running one command per client.
 
@@ -169,6 +177,11 @@ Each mapping must have:
 }
 ```
 
+Validation note: `scripts/sync-google-ads-sheet-clients.mjs` created 14 clients
+and 14 Google Ads mappings in a temporary validation database on 2026-06-10.
+The configured `.env` database at `localhost:5432` was not reachable, so this
+still needs to be run against the real application database.
+
 - [ ] **Step 2: Import each mapping**
 
 Run:
@@ -187,6 +200,12 @@ node scripts/import-google-ads-sheet.mjs
 
 Expected: each run imports only rows whose `Account ID` matches that mapping's `sourceAccountId`.
 
+Validation note: a direct connector check for account `642-652-2547` returned
+600 weekly metric rows and 67,080 full-history metric rows with no warnings.
+The full all-mappings API import was attempted against a temporary database but
+the client timed out waiting for the first long-running `/api/imports` response.
+Re-run after the real database/server environment is available.
+
 ### Task 5: Validate Reports
 
 **Files:**
@@ -203,6 +222,8 @@ Use a date range that exists in the Sheet, for example:
 
 Expected: report shows Google Ads spend, impressions, clicks, conversions, and conversion value from database rows.
 
+Blocked until the real database has imported Google Ads metric rows.
+
 - [ ] **Step 2: Generate a monthly report**
 
 Use a completed month from the historical data:
@@ -213,12 +234,14 @@ Use a completed month from the historical data:
 
 Expected: report aggregates all stored Google Ads rows for that month.
 
+Blocked until the real database has imported Google Ads metric rows.
+
 ### Task 6: Switch Script To Ongoing Mode
 
 **Files:**
 - Modify: `scripts/google-ads-mcc-to-sheets.gs`
 
-- [ ] **Step 1: Switch from historical mode after backfill**
+- [x] **Step 1: Switch from historical mode after backfill**
 
 ```js
 dateMode: "LOOKBACK",
@@ -228,6 +251,11 @@ replaceSheetRows: true
 ```
 
 Expected: scheduled script runs keep only the latest rolling rows in the Sheet; database imports can still replace that rolling window safely.
+
+Implementation note: `scripts/google-ads-mcc-to-sheets.gs` is now in
+`LOOKBACK` mode. If the real database still needs the historical backfill,
+temporarily switch `dateMode` back to `CUSTOM` before refreshing the staging
+Sheet.
 
 ---
 

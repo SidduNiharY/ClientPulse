@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { NextResponse } from "next/server";
@@ -30,6 +30,15 @@ export async function GET(
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
+    if (version.pdfPath) {
+      try {
+        const cachedPdf = await readFile(version.pdfPath);
+        return createPdfResponse(cachedPdf, report.id);
+      } catch {
+        // Temporary cached files can disappear between app restarts.
+      }
+    }
+
     const snapshot = version.metricsSnapshot as unknown as ReportDraftSnapshot;
     const html = renderReportHtml({
       clientName: report.client.name,
@@ -45,12 +54,7 @@ export async function GET(
       data: { pdfPath }
     });
 
-    return new Response(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${report.id}.pdf"`
-      }
-    });
+    return createPdfResponse(pdf, report.id);
   } catch (error) {
     return NextResponse.json(
       {
@@ -59,4 +63,13 @@ export async function GET(
       { status: 500 }
     );
   }
+}
+
+function createPdfResponse(pdf: Buffer, reportId: string) {
+  return new Response(new Uint8Array(pdf), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${reportId}.pdf"`
+    }
+  });
 }

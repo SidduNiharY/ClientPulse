@@ -41,19 +41,24 @@ export function buildSourceTraceSummary(
 }
 
 export function collectSourceTraceDetails(
-  rows: NormalizedMetricRow[]
+  rows: NormalizedMetricRow[],
+  limit = Number.POSITIVE_INFINITY
 ): SourceTrace[] {
   const tracesByKey = new Map<string, SourceTrace>();
 
   for (const row of rows) {
     const key = buildDetailedTraceKey(row.sourceTrace);
 
-    if (!tracesByKey.has(key)) {
+    if (!tracesByKey.has(key) && tracesByKey.size < limit) {
       tracesByKey.set(key, row.sourceTrace);
     }
   }
 
   return Array.from(tracesByKey.values());
+}
+
+export function countSourceTraceDetails(rows: NormalizedMetricRow[]): number {
+  return new Set(rows.map((row) => buildDetailedTraceKey(row.sourceTrace))).size;
 }
 
 function buildTraceKey(trace: SourceTrace) {

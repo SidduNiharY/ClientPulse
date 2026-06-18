@@ -16,17 +16,17 @@ export type AccountMappingItem = {
 
 const platformOptions = [
   { value: "google_ads", label: "Google Ads" },
+  { value: "meta_ads", label: "Meta Ads" },
   { value: "ga4", label: "GA4" },
+  { value: "shopify", label: "Shopify" },
   { value: "manual", label: "Manual fallback" }
 ];
 
 const ingestionOptions = [
-  { value: "csv_upload", label: "CSV upload" },
   { value: "google_sheets", label: "Google Sheets" },
+  { value: "csv_upload", label: "CSV upload" },
   { value: "bigquery", label: "BigQuery" },
-  { value: "platform_script", label: "Platform script" },
-  { value: "direct_api", label: "Direct API" },
-  { value: "third_party_connector", label: "Third-party connector" }
+  { value: "platform_script", label: "Platform script" }
 ];
 
 export function AccountMappingForm({
@@ -38,7 +38,7 @@ export function AccountMappingForm({
 }) {
   const [mappings, setMappings] =
     useState<AccountMappingItem[]>(initialMappings);
-  const [ingestionMethod, setIngestionMethod] = useState("csv_upload");
+  const [ingestionMethod, setIngestionMethod] = useState("google_sheets");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isHydrated = useHydrated();
@@ -101,7 +101,8 @@ export function AccountMappingForm({
             Add mapping
           </h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Map Google Ads, Meta Ads, GA4, Shopify, or manual fallback data.
+            Map sheet, script, CSV, or BigQuery data. Direct API setup is no
+            longer exposed in this workspace.
           </p>
         </div>
 
@@ -175,10 +176,9 @@ export function AccountMappingForm({
               </label>
               <input
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-                defaultValue="1jRuA3voNNsoCUTRAkUVGJIEe5_zU6k9jLwMMi9i8Z5E"
                 id="spreadsheetId"
                 name="spreadsheetId"
-                required={isGoogleSheets}
+                placeholder="Optional when imports use a pasted Sheet link"
                 type="text"
               />
             </div>
@@ -189,10 +189,9 @@ export function AccountMappingForm({
               </label>
               <input
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-                defaultValue="Data Extraction Spreadsheet!A:Q"
                 id="range"
                 name="range"
-                required={isGoogleSheets}
+                placeholder="Optional, e.g. Sheet1!A:Z"
                 type="text"
               />
             </div>
@@ -203,10 +202,9 @@ export function AccountMappingForm({
               </label>
               <input
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-                defaultValue="Account ID"
                 id="accountIdField"
                 name="accountIdField"
-                required={isGoogleSheets}
+                placeholder="Optional, e.g. Account ID"
                 type="text"
               />
             </div>
@@ -217,10 +215,9 @@ export function AccountMappingForm({
               </label>
               <input
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--field)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-                defaultValue="google-ads-mcc-sheet"
                 id="sourceReference"
                 name="sourceReference"
-                required={isGoogleSheets}
+                placeholder="Optional label for audit trail"
                 type="text"
               />
             </div>
