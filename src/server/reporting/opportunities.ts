@@ -66,7 +66,7 @@ export function detectOpportunities(input: {
         severity: "warning",
         dimensionName: "campaign",
         dimensionValue: campaign,
-        message: `${campaign} CPC is above the portfolio threshold.`,
+        message: `${campaign} CPC is above the reporting threshold.`,
         impactMetric: cpc,
         clientSafe: true
       });
